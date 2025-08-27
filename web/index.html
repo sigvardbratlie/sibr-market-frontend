@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Verdivurdering</title>
+    <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+
+    <main class="chat-container">
+        <div class="top-buttons">
+            <button>AI-valuation</button>
+            <button>Insights</button>
+        </div>
+
+        <div class="initial-view" id="initial-view">
+            <h1>AI-Valuation</h1>
+            <h2>Verdivurdering av boliger i hele Norge</h2>
+        </div>
+
+        <section class="chat-messages hidden" id="chat-messages">
+            </section>
+
+        <div class="prompt-suggestions">
+            <button class="prompt-btn">Hva er snittprisen for leiligheter i Oslo?</button>
+            <button class="prompt-btn">Gi meg en verdivurdering for en enebolig i Bergen.</button>
+            <button class="prompt-btn">Sammenlign prisene i Trondheim og Stavanger.</button>
+        </div>
+
+        <footer class="chat-input-form">
+            <form id="input-form">
+                <textarea
+                    id="message-input"
+                    placeholder="Still et spørsmål eller estimer boligens verdi..."
+                    rows="1"
+                    required></textarea>
+
+                <div class="button-container">
+                    <button id="send-button" type="submit">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="send-icon"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </button>
+                    <button id="stop-button" type="button" class="hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="stop-icon"><path d="M6 6h12v12H6z"></path></svg>
+                    </button>
+                </div>
+            </form>
+        </footer>
+    </main>
+
+    <script type="module" src="/src/script.js"></script>
+</body>
+</html>

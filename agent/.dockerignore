@@ -1,0 +1,6 @@
+*.ipynb
+.venv
+.idea
+.env
+*.json
+

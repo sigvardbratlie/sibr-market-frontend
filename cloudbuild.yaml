@@ -1,0 +1,52 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+# STEP 0: Check the commit message.
+- name: 'gcr.io/cloud-builders/git'
+  id: 'Check-commit-message'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    commit_message=$(git log -1 --pretty=%B "${COMMIT_SHA}")
+    if [[ ! "$commit_message" =~ "gcloud build" ]]; then
+      echo "Keyword 'gcloud build' is missing. Failing build."
+      exit 1
+    else
+      echo "Keyword found. Proceeding with build."
+    fi
+
+# STEP 1: Build the Docker container
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-image'
+  waitFor: ['Check-commit-message']
+  args:
+    - 'build'
+    - '-t'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA'
+    - '.'
+
+# STEP 2: Push the Docker container
+- name: 'gcr.io/cloud-builders/docker'
+  waitFor: ['build-image']
+  args:
+    - 'push'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA'
+
+# STEP 3: Deploy to Cloud Run
+- name: 'gcr.io/google.com/cloudsdk/cloud-sdk'
+  id: 'deploy-gcloud run'
+  waitFor: ['push']
+  args:
+    - gcloud
+    - run
+    - deploy
+    - agent-homes
+    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA
+    - --region=europe-west1
+    - --platform=managed
+    - --allow-unauthenticated
+
+images:
+- 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA'

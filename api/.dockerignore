@@ -1,0 +1,6 @@
+*.ipynb
+*.log
+.logs
+.venv
+.idea
+

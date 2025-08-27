@@ -1,0 +1,345 @@
+
+BASE INSTRUCTIONS
+
+-------------------------------------------------------------------------------------------------------------------------------------
+The agent.homes is the main dataset that only contains one row for each object.
+Use also data from the other tables if needed.
+The references tables are aggregated data per municipality, postal codes and grunnkrets (Basic Statistical Unit). 
+ Specifically for Oslo City, we have  districts. Focus on the aggregated data within the smallest grouping first, that is grunnkrets, moving outwords to postal_codes and at last to municipality.
+The help tables gives different values for location and demographic data.
+
+**DATABASE INFORMATION**:
+Project ID: sibr-market
+Main Table: ['agent.homes'],
+Help Tables: ['staging.geocoded', 'staging.salestimes_homes', 'admin.geo_norge', 'admin.geo_oslo', 'admin.SSB_municipality']
+Reference Tables: ['api.homes_apartments_municipality', 'api.homes_apartments_postal', 'api.homes_houses_municipality', 'api.homes_houses_postal', 'api.homes_oslo_districts', 'api.homes_apartments_grunnkrets', 'api.homes_houses_grunnkrets'] 
+
+**Information on table agent.homes** 
+	dealer: object. Example: Krogsveen Jessheim 
+	district: object. Example: Tunga 
+	address: object. Example: Solerødveien 23, 1784 Halden 
+	price: Int64. Example: 1290000 
+	total_price: Int64. Example: 13326240 
+	fees: Int64. Example: 8981 
+	joint_debt: Int64. Example: <NA> 
+	monthly_common_cost: float64. Example: 5835.0 
+	collective_assets: Int64. Example: <NA> 
+	tax_value: Int64. Example: 873370 
+	property_type: object. Example: Tomannsbolig 
+	ownership_type: object. Example: Eier  
+	bedrooms: Int64. Example: 3 
+	internal_area: Int64. Example: 235 
+	usable_area: Int64. Example: 107 
+	external_area: Int64. Example: 5 
+	floor: Int64. Example: 2 
+	balcony: Int64. Example: 35 
+	build_year: Int64. Example: 1924 
+	energy_rating: object. Example: G - Rød 
+	rooms: Int64. Example: 4 
+	plot_size: Int64. Example: 1604 
+	last_updated: object. Example: 01. des. 2024 15:39 
+	item_id: object. Example: 366989620 
+	title: object. Example: Vestvendt selveierleilighet i 8. etg. med flott utsikt og kveldssol! 
+	description: object. Example: ['Felleskostnader fordeles slik:', 'kr 1 434 Felleskostnader - styre- og forretningsførerhonorar, dr 
+	email: object. Example: Tone.Mannes@dnbeiendom.no 
+	contact_person: object. Example: Per Christian Sandvik 
+	phone: object. Example: 92 66 29 72 
+	url: object. Example: https://www.finn.no/realestate/homes/ad.html?finnkode=389125620 
+	country: object. Example: NO 
+	web: object. Example: https://proaktiv.no/eiendomsmegler/haugesund/proaktiv-eiendomsmegling-haugesund 
+	new: object. Example: False 
+	facilities: object. Example: [] 
+	cadastral_num: Int64. Example: 71 
+	unit_num: Int64. Example: 814 
+	section_num: Int64. Example: 1 
+	municipality_num: Int64. Example: 4202 
+	coop_unit_num: Int64. Example: <NA> 
+	scrape_date: datetime64[us, UTC]. Example: 2024-09-19 00:00:00+00:00 
+	coop_name: object. Example: [] 
+	coop_org_num: Int64. Example: 950724668 
+	apartment_num: object. Example: [] 
+	leasehold_num: Int64. Example: <NA> 
+	rn: Int64. Example: 1 
+	price_pr_sqm: float64. Example: 73863.63636363637 
+	price_pr_i_sqm: float64. Example: 31250.0 
+	price_pr_bedroom: float64. Example: 1050000.0 
+	sqm_pr_bedroom: float64. Example: 48.0 
+	monthly_common_cost_pr_sqm: float64. Example: 44.39855072463768 
+	clean_date: datetime64[us, UTC]. Example: 2025-08-17 15:46:58.191004+00:00 
+	postal_code: object. Example: 3580 
+	municipality: object. Example: LØRENSKOG 
+	county: object. Example: Akershus 
+	region: object. Example: Østlandet 
+	eq_parking: boolean. Example: False 
+	eq_lift: boolean. Example: True 
+	eq_fireplace: boolean. Example: True 
+	eq_charging_possibility: boolean. Example: False 
+	eq_aircondition: boolean. Example: False 
+	eq_garden: boolean. Example: False 
+	eq_pool: boolean. Example: False 
+	fixer_upper: boolean. Example: True 
+	renovated: boolean. Example: True 
+	eq_rental_unit: boolean. Example: False 
+	eq_west_facing: boolean. Example: False 
+	eq_sauna: boolean. Example: False 
+	grunnkretsnavn: object. Example: Motland 
+	grunnkretsnummer: object. Example: 56050307 
+	Kommunenr: object. Example: 5055 
+	areal_befolkning_ArealKm2: Int64. Example: 465 
+	areal_befolkning_FolkeLandArealKm2: Int64. Example: 160 
+	areal_befolkning_Folkemengde: Int64. Example: 717710 
+	areal_befolkning_LandArealKm2: Int64. Example: 250 
+	inntekt_AvtArbTid: float64. Example: 30.4 
+	inntekt_AvtaltManedslonn: float64. Example: 53450.0 
+	inntekt_Bonus: float64. Example: 160.0 
+	inntekt_Manedslonn: float64. Example: 52960.0 
+	inntekt_Overtid: float64. Example: 1000.0 
+	inntekt_Uregtil: float64. Example: 1590.0 
+	husholdninger_Husholdninger: Int64. Example: 178282 
+	sysselsetting_Arbeidssted: Int64. Example: 1121 
+	sysselsetting_Bosatt: Int64. Example: 6141 
+	sysselsetting_Innpendlere: Int64. Example: 87663 
+	sysselsetting_Utpendlere: Int64. Example: 29661 
+	utdanning_Personer: Int64. Example: 607167 
+	utdanning_PersonerProsent: Int64. Example: 100 
+	bedrifter_Virksheter: Int64. Example: 4536 
+	fødte_Levendefodte: Int64. Example: 4598 
+	kvm_pris_KvPris: float64. Example: 28975.0 
+	kvm_pris_Omsetninger: float64. Example: 314.0 
+	eksisterende_bygg_Bygninger: Int64. Example: 9085 
+	eksisterende_boligbygg_Boligbygg: Int64. Example: 7001 
+	boligtyper_Boliger: Int64. Example: 21632 
+	lat: float64. Example: 59.91307 
+	lng: float64. Example: nan 
+	refprice_sqm_grunnkrets: float64. Example: 80497.16782263554 
+	salestime_grunnkrets: float64. Example: 57.73529411764706 
+	n_grunnkrets: Int64. Example: 37 
+	refprice_sqm_postal: float64. Example: 43253.365151010505 
+	salestime_postal: float64. Example: 78.66666666666666 
+	n_postal: Int64. Example: 31 
+	refprice_sqm_municipality: float64. Example: 73490.92520679002 
+	salestime_municipality: float64. Example: 53.04018547140649 
+	n_municipality: Int64. Example: 1562 
+
+**Information on table staging.geocoded** 
+	address: object. Example: None 
+	lat: float64. Example: 59.922082 
+	lng: float64. Example: 10.768032 
+	address_org: object. Example: Bjørgelien 15F, 5141 Fyllingsdalen 
+	item_id: object. Example: 420002951 
+	api_status: object. Example: OK_nominatim 
+	geocoder: object. Example: nominatim 
+	confidence: float64. Example: nan 
+	get_date: datetime64[us, UTC]. Example: 2025-08-20 20:30:47.951718+00:00 
+	geometry: object. Example: POINT (5.73963 58.857304) 
+	index_right: float64. Example: 9479.0 
+	objid: float64. Example: 8465.0 
+	objtype: object. Example: Grunnkrets 
+	lokalid: object. Example: 0bdc5c7f-faac-45c9-8fa3-1bb2db489b01 
+	navnerom: object. Example: https://data.geonorge.no/sosi/inndelinger/inndelingsbase/grunnkretser 
+	versjonid: object. Example: None 
+	oppdateringsdato: object. Example: 20231107222611.914121+01:00 
+	gyldigfra: object. Example: 20231107 
+	gyldigtil: object. Example: None 
+	datafangstdato: object. Example: 20170110000000+01:00 
+	datauttaksdato: object. Example: 20240910054027.892+02:00 
+	opphav: object. Example: Kartverket 
+	grunnkretsnummer: object. Example: 03010209 
+	grunnkretsnavn: object. Example: Torshov rode 2 
+	kommunenummer: object. Example: 4203 
+
+**Information on table staging.salestimes_homes** 
+	item_id: object. Example: 335610622 
+	first_scrape: dbdate. Example: 2024-09-30 
+	last_scrape: dbdate. Example: 2024-07-04 
+	sales_time: Int64. Example: 114 
+
+**Information on table admin.geo_norge** 
+	postal_code: object. Example: 1164 
+	postal_place: object. Example: OSLO 
+	municipality_code: object. Example: 0301 
+	municipality: object. Example: HERØY (MØRE OG ROMSDAL) 
+	category: object. Example: G 
+	county_code: object. Example: 11 
+	county: object. Example: Oslo 
+	region: object. Example: Nord-Norge 
+
+**Information on table admin.geo_oslo** 
+	objtype: object. Example: Postnummerområde 
+	postnummer: object. Example: 0376 
+	poststed: object. Example: OSLO 
+	lokalid: object. Example: 1b20b2e7-a965-448d-b975-e2b7b902aae4 
+	navnerom: object. Example: https://data.geonorge.no/sosi/administrativeenheter/postnummeromrader 
+	versjonid: object. Example: 20180215 
+	datauttaksdato: object. Example: 20240528093615 
+	oppdateringsdato: object. Example: 20130124 
+	opphav: object. Example: Posten Norge/Kartverket 
+	noyaktighet: float64. Example: nan 
+	kommune: object. Example: 0301 
+	malemetode: object. Example: 82 
+	FID: Int64. Example: 2 
+	kommunenum: object. Example: 0301 
+	BYDEL: object. Example: 13 
+	BYDELSNAVN: object. Example: Stovner 
+	geometry: object. Example: POLYGON ((591537.4442929539 6647635.420826659, 591574.1354495526 6647674.230985913, 591565.775885855 
+	area: float64. Example: 129724.45616870797 
+
+**Information on table admin.SSB_municipality** 
+	Kommunenr: object. Example: 1122 
+	Kommune: object. Example: Vestby 
+	År: object. Example: 2024 
+	areal_befolkning_ArealKm2: Int64. Example: 905 
+	areal_befolkning_FolkeLandArealKm2: Int64. Example: 12 
+	areal_befolkning_Folkemengde: Int64. Example: 12362 
+	areal_befolkning_LandArealKm2: Int64. Example: 671 
+	inntekt_AvtArbTid: float64. Example: 26.5 
+	inntekt_AvtaltManedslonn: float64. Example: 50270.0 
+	inntekt_Bonus: float64. Example: 540.0 
+	inntekt_Manedslonn: float64. Example: 49220.0 
+	inntekt_Overtid: float64. Example: 930.0 
+	inntekt_Uregtil: float64. Example: 5630.0 
+	husholdninger_Husholdninger: Int64. Example: 403 
+	sysselsetting_Arbeidssted: Int64. Example: 244 
+	sysselsetting_Bosatt: Int64. Example: 1605 
+	sysselsetting_Innpendlere: Int64. Example: 302 
+	sysselsetting_Utpendlere: Int64. Example: 145 
+	utdanning_Personer: Int64. Example: 3225 
+	utdanning_PersonerProsent: Int64. Example: 100 
+	bedrifter_Virksheter: Int64. Example: 619 
+	fødte_Levendefodte: Int64. Example: 2 
+	kvm_pris_KvPris: float64. Example: 36850.0 
+	kvm_pris_Omsetninger: float64. Example: 1.0 
+	eksisterende_bygg_Bygninger: Int64. Example: 40397 
+	eksisterende_boligbygg_Boligbygg: Int64. Example: 8683 
+	boligtyper_Boliger: Int64. Example: 9610 
+
+**Information on table api.homes_apartments_municipality** 
+	municipality: object. Example: SELBU 
+	price: float64. Example: 4064537.7295285366 
+	usable_area: float64. Example: 59.0 
+	internal_area: float64. Example: 70.53846153846153 
+	price_pr_i_sqm: float64. Example: 35604.253473593 
+	price_pr_sqm: float64. Example: 33412.51740159303 
+	monthly_common_cost: float64. Example: 5699.25 
+	monthly_common_cost_pr_sqm: float64. Example: 60.24471011879364 
+	collective_assets: float64. Example: nan 
+	joint_debt: float64. Example: 0.0 
+	plot_size: float64. Example: 1968.1111111111106 
+	bedrooms: float64. Example: 1.875 
+	floor: float64. Example: 2.6999999999999997 
+	build_year: float64. Example: 2019.9999999999998 
+	balcony: float64. Example: 15.0 
+	external_area: float64. Example: 5.564608199273489 
+	sales_time: float64. Example: 78.66666666666667 
+	n: Int64. Example: 797 
+
+**Information on table api.homes_apartments_postal** 
+	postal_code: object. Example: 3922 
+	price: float64. Example: 2122142.857142857 
+	usable_area: float64. Example: 102.38461538461542 
+	internal_area: float64. Example: 87.8913043478261 
+	price_pr_i_sqm: float64. Example: 52294.203073255325 
+	price_pr_sqm: float64. Example: 46657.92634231553 
+	monthly_common_cost: float64. Example: 4922.318181818182 
+	monthly_common_cost_pr_sqm: float64. Example: 40.662562408604835 
+	collective_assets: float64. Example: 51281.0 
+	joint_debt: float64. Example: 230539.48387096776 
+	plot_size: float64. Example: 2610.6964285714284 
+	bedrooms: float64. Example: 1.9487179487179487 
+	floor: float64. Example: 2.5327868852459017 
+	build_year: float64. Example: 2012.3589743589748 
+	balcony: float64. Example: 17.56626506024096 
+	external_area: float64. Example: 3.968325791855203 
+	sales_time: float64. Example: 16.576923076923077 
+	n: Int64. Example: 25 
+
+**Information on table api.homes_houses_municipality** 
+	municipality: object. Example: FAUSKE 
+	price: float64. Example: 2021176.4705882352 
+	usable_area: float64. Example: 192.31999999999996 
+	internal_area: float64. Example: 156.11111111111111 
+	price_pr_i_sqm: float64. Example: 10118.13203478675 
+	price_pr_sqm: float64. Example: 30831.25201352263 
+	bedrooms: float64. Example: 3.6666666666666665 
+	plot_size: float64. Example: 26723.024999999994 
+	floor: float64. Example: 1.0068965517241382 
+	build_year: float64. Example: 1980.817947062621 
+	balcony: float64. Example: 41.20607857672347 
+	external_area: float64. Example: 18.83333333333333 
+	sales_time: float64. Example: 31.910189982728824 
+	n: Int64. Example: 30 
+
+**Information on table api.homes_houses_postal** 
+	postal_code: object. Example: 3135 
+	price: float64. Example: 4519714.285714285 
+	usable_area: float64. Example: 223.21599999999998 
+	internal_area: float64. Example: 172.92857142857142 
+	price_pr_i_sqm: float64. Example: 54141.42302665572 
+	price_pr_sqm: float64. Example: 35506.292632763165 
+	bedrooms: float64. Example: 3.545454545454546 
+	plot_size: float64. Example: 966.7692307692308 
+	floor: float64. Example: 0.8461538461538461 
+	build_year: float64. Example: 1989.421052631579 
+	balcony: float64. Example: 67.26315789473685 
+	external_area: float64. Example: 11.575757575757578 
+	sales_time: float64. Example: 31.829787234042534 
+	n: Int64. Example: 33 
+
+**Information on table api.homes_oslo_districts** 
+	district_name: object. Example: Grorud 
+	price: float64. Example: 6678422.770398484 
+	usable_area: float64. Example: 63.40749364944951 
+	internal_area: float64. Example: 108.59901960784326 
+	price_pr_i_sqm: float64. Example: 57087.00093343514 
+	price_pr_sqm: float64. Example: 58519.41323030381 
+	monthly_common_cost: float64. Example: 5324.320754716986 
+	monthly_common_cost_pr_sqm: float64. Example: 65.85728518384084 
+	collective_assets: float64. Example: 29610.466919739683 
+	joint_debt: float64. Example: 528856.5418809693 
+	plot_size: float64. Example: 17361.516614745567 
+	bedrooms: float64. Example: 1.5977984758679122 
+	floor: float64. Example: 2.345718901453958 
+	build_year: float64. Example: 1969.2432697014203 
+	balcony: float64. Example: 7.360030511060257 
+	external_area: float64. Example: 10.753009147809347 
+	sales_time: float64. Example: 23.974964838256 
+	n: Int64. Example: 1020 
+
+**Information on table api.homes_apartments_grunnkrets** 
+	grunnkretsnavn: object. Example: Strømsteinen 
+	grunnkretsnummer: object. Example: 03012204 
+	price: float64. Example: 5281929.824561402 
+	usable_area: float64. Example: 91.17391304347827 
+	internal_area: float64. Example: 71.61538461538464 
+	price_pr_i_sqm: float64. Example: 48155.45650781396 
+	price_pr_sqm: float64. Example: 93835.78367509278 
+	monthly_common_cost: float64. Example: 4776.206896551724 
+	monthly_common_cost_pr_sqm: float64. Example: 59.942316055939514 
+	collective_assets: float64. Example: nan 
+	joint_debt: float64. Example: 138418.09090909094 
+	plot_size: float64. Example: 2334.9583333333335 
+	bedrooms: float64. Example: 1.9166666666666665 
+	floor: float64. Example: 2.0833333333333335 
+	build_year: float64. Example: 1985.6 
+	balcony: float64. Example: 36.0 
+	external_area: float64. Example: 6.096774193548388 
+	sales_time: float64. Example: 64.33333333333333 
+	n: Int64. Example: 28 
+
+**Information on table api.homes_houses_grunnkrets** 
+	grunnkretsnavn: object. Example: Nattland 
+	grunnkretsnummer: object. Example: 42060112 
+	price: float64. Example: 6467368.421052632 
+	usable_area: float64. Example: 281.0 
+	internal_area: float64. Example: 154.87500000000003 
+	price_pr_i_sqm: float64. Example: 42447.15572149097 
+	price_pr_sqm: float64. Example: 28218.744758249166 
+	bedrooms: float64. Example: 3.7857142857142856 
+	plot_size: float64. Example: 1145.9310344827586 
+	floor: float64. Example: 0.0 
+	build_year: float64. Example: 1974.3333333333333 
+	balcony: float64. Example: 8.0 
+	external_area: float64. Example: 25.400000000000002 
+	sales_time: float64. Example: 16.5 
+	n: Int64. Example: 21 
+

@@ -1,0 +1,320 @@
+/* --- GRUNNLEGGENDE STYLING OG FARGEVARIABLER --- */
+:root {
+    --background-color: #f8f7f4;
+    --text-color: #2c2c2e;
+    --primary-accent: #5a5a5a;
+    --user-bubble-bg: #333333;
+    --user-bubble-text: #ffffff;
+    --agent-bubble-bg: #e9e9eb;
+    --agent-bubble-text: #2c2c2e;
+    --border-color: #d1d1d6;
+    --spinner-color: #888;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* --- HOVEDLAYOUT --- */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    padding: 2rem 1rem 10rem; /* ØKT PADDING I BUNN TIL 4rem FOR Å LØFTE ALT */
+    box-sizing: border-box;
+}
+
+/* --- UTGANGSPUNKT --- */
+.initial-view {
+    text-align: center;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+.initial-view.hidden { display: none;}
+.initial-view h1 { font-size: 3rem; font-weight: 600; margin: 0;}
+.initial-view h2 { font-size: 1.5rem; font-weight: 400; color: var(--primary-accent); }
+
+.top-buttons {
+    position: absolute;
+    top: 3rem; /* Flyttet litt ned fra toppen */
+    left: 50%; /* Sentrert horisontalt */
+    transform: translateX(-50%); /* Korrigerer sentrering */
+    display: flex;
+    gap: 0.75rem;
+}
+.top-buttons button { background-color: #fff; border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.9rem; cursor: pointer; }
+
+/* --- CHAT-MELDINGER --- */
+.chat-messages {
+    width: 100%;
+    max-width: 700px;
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 7rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.chat-messages.hidden { display: none; }
+
+/* --- INDIVIDUELLE MELDINGER --- */
+.message {
+    padding: 0.75rem 1.25rem;
+    border-radius: 18px;
+    max-width: 85%;
+    line-height: 1.5;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.message p {
+    margin: 0;
+    white-space: pre-wrap;
+}
+.agent-message { background-color: var(--agent-bubble-bg); color: var(--agent-bubble-text); align-self: flex-start; border-bottom-left-radius: 4px; }
+.user-message { background-color: var(--user-bubble-bg); color: var(--user-bubble-text); align-self: flex-end; border-bottom-right-radius: 4px; }
+
+/* --- INPUT-FELT (GJENOPPRETTET) --- */
+.chat-input-form {
+    width: 100%;
+    max-width: 700px;
+}
+.chat-input-form form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center; /* ENDRET FRA flex-end TIL center FOR VERTIKAL SENTRERING */
+}
+.chat-input-form textarea {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    font-family: inherit;
+    background-color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    outline: none;
+    transition: box-shadow 0.2s ease;
+    resize: none;
+    line-height: 1.5;
+    max-height: 150px;
+    overflow-y: auto;
+}
+.chat-input-form textarea:focus {
+    box-shadow: 0 0 0 3px rgba(90, 90, 90, 0.15);
+}
+
+/* -- Justert for synlig send-knapp -- */
+.chat-input-form form {
+    display: flex;
+    align-items: flex-end; /* Justerer knappen med bunnen av tekstfeltet */
+    gap: 0.75rem; /* Mellomrom mellom tekstfelt og knapp */
+}
+
+.chat-input-form button {
+    display: flex; /* Endret fra 'none' */
+    align-items: center;
+    justify-content: center;
+    background-color: var(--primary-accent);
+    color: white;
+    border: none;
+    border-radius: 50%; /* Sirkulær knapp */
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0; /* Forhindrer at knappen krymper */
+    transition: background-color 0.2s ease;
+}
+
+.chat-input-form button:hover {
+    background-color: #333;
+}
+
+.send-icon {
+    width: 22px;
+    height: 22px;
+}
+
+/* --- STIL FOR INTEGRERT, KOLLAPSBAR "THINKING"-SEKSJON --- */
+.thinking-details {
+    margin-top: 12px;
+    background-color: rgba(0, 0, 0, 0.04);
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.thinking-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    outline: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--primary-accent);
+}
+
+/* Pil-indikator for åpen/lukket tilstand */
+.thinking-summary::before {
+    content: '▶';
+    font-size: 0.7em;
+    transition: transform 0.2s;
+}
+.thinking-details[open] > .thinking-summary::before {
+    transform: rotate(90deg);
+}
+
+.thinking-content {
+    padding: 0px 12px 12px 12px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    max-height: 250px;
+    overflow-y: auto;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: #444;
+}
+.thinking-content p {
+    margin: 0 0 8px 0;
+}
+
+/* --- SPINNER-ANIMASJON --- */
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--spinner-color);
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+    flex-shrink: 0;
+}
+.spinner.hidden { display: none; }
+@keyframes rotation {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- Stil for lenker i svaret --- */
+.agent-message a {
+    color: #0056b3;
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: color 0.2s, background-color 0.2s;
+}
+.agent-message a:hover {
+    color: #00448f;
+    background-color: rgba(0, 86, 179, 0.1);
+}
+
+
+/* --- Styling for Knapp-beholder og knapper (Korrigert versjon) --- */
+
+.button-container {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0; /* Forhindrer at beholderen krymper */
+}
+
+/* Felles stil for BEGGE knapper */
+#send-button,
+#stop-button {
+    /* Posisjon og størrelse */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    /* Utseende */
+    border: none;
+    border-radius: 50%; /* Sirkulær */
+    padding: 0;
+    cursor: pointer;
+
+    /* KORREKSJON: Sentrerer ikonet perfekt i midten */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Animasjon */
+    transition: opacity 0.2s, transform 0.2s, background-color 0.2s;
+}
+
+/* Spesifikk stil for Send-knapp */
+#send-button {
+    background-color: var(--primary-accent);
+}
+#send-button:hover {
+    background-color: #333;
+}
+
+/* Spesifikk stil for Stopp-knapp */
+#stop-button {
+    background-color: #d9534f; /* Rød farge for stopp */
+}
+#stop-button:hover {
+    background-color: #c9302c;
+}
+
+/* Ikon-stiler */
+.send-icon {
+    width: 22px;
+    height: 22px;
+}
+.stop-icon {
+    width: 16px; /* Litt mindre for å matche firkant-formen */
+    height: 16px;
+}
+
+/* Hjelpeklasse for å skjule/vise elementer */
+.hidden {
+    opacity: 0;
+    transform: scale(0.5);
+    pointer-events: none; /* Kan ikke klikkes når den er skjult */
+}
+
+.prompt-suggestions {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap; /* Sørger for at knappene legger seg under hverandre på små skjermer */
+    max-width: 700px;
+    width: 100%;
+}
+
+.prompt-btn {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    color: var(--primary-accent);
+}
+
+.prompt-btn:hover {
+    background-color: var(--agent-bubble-bg);
+    border-color: #c1c1c6;
+}
