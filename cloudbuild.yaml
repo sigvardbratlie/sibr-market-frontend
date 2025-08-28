@@ -25,7 +25,7 @@ steps:
   args:
     - 'build'
     - '-t'
-    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
     - './agent'
 
 - name: 'gcr.io/cloud-builders/docker'
@@ -44,7 +44,7 @@ steps:
   waitFor: ['build-agent']
   args:
     - 'push'
-    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
 
 - name: 'gcr.io/cloud-builders/docker'
   id: "push-api"
@@ -61,8 +61,8 @@ steps:
     - gcloud
     - run
     - deploy
-    - 'agent-homes' #
-    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA
+    - 'agent'
+    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA
     - --region=europe-west1
     - --platform=managed
     - --allow-unauthenticated
@@ -81,5 +81,5 @@ steps:
     - --allow-unauthenticated
 
 images:
-- 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent_homes:$COMMIT_SHA'
+- 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
 - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
