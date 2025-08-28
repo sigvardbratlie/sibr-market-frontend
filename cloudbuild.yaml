@@ -36,7 +36,6 @@ steps:
     - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
     - '.'
 
-
 # STEP 2: Push the Docker container
 - name: 'gcr.io/cloud-builders/docker'
   id: "push-agent"
