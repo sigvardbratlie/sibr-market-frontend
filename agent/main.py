@@ -12,6 +12,7 @@ from pydantic import BaseModel
 import uvicorn
 from pathlib import Path
 from langchain_google_vertexai import ChatVertexAI
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 load_dotenv()
@@ -197,7 +198,12 @@ DATABASE SCHEMA:
 
         """
 
-agent = HomeAgent(llms = llms , tools = tools,prompt=GENERAL_PROMPT,logger = logger)
+prompts = {"valuation" : VALUATION_PROMPT,
+           "general" : GENERAL_PROMPT}
+
+agent = HomeAgent(llms = llms , tools = tools,prompts=prompts,logger = logger)
+
+
 
 async def stream_generator(question: str, session_id: str,agent_type : str):
     """

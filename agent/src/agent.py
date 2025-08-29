@@ -14,6 +14,8 @@ from sibr_module import Logger
 from google.cloud import bigquery
 import os
 from geopy.geocoders import Nominatim
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from src.langchain_firestore_sb import FirestoreSaver
 #load_dotenv()
 
@@ -426,7 +428,7 @@ class HomeAgent:
     """
     An Agent designet to give property valuations and answer questions on the norwegian housing market.
     """
-    def __init__(self,llms : dict[str, BaseChatModel], tools : List[tool],prompt : str,logger : Logger = None,):
+    def __init__(self,llms : dict[str, BaseChatModel], tools : List[tool],prompts : dict,logger : Logger = None,):
         """
                 Initializes the HomeAgent.
                 Args:
@@ -440,8 +442,9 @@ class HomeAgent:
         self.logger.set_level("DEBUG")
         self.tools = tools
         self.llms = llms
-        self.prompt = self._load_prompt(instructions_filepath="src/instructions.txt", prompt=prompt)
-        self.checkpointer = FirestoreSaver(project_id="sibr-market",database_id="homes-agent")
+        self.prompts = prompts
+        self.checkpointer = FirestoreSaver(project_id="sibr-market", database_id="homes-agent")
+        #self.prompt = self._load_prompt(instructions_filepath="src/instructions.txt", prompt=prompts)
         # self.checkpointer = InMemorySaver()
         #self.agent = self._compile_agent()
 
@@ -449,10 +452,33 @@ class HomeAgent:
         with open(instructions_filepath, "r") as f:
             instructions_text = f.read()
 
-
-
         return prompt + instructions_text
 
+    def choose_type(self, user_input: str) -> Literal["valuation", "general"]:
+        """Determines if the user is asking for a valuation or a general question."""
+        chose_agent_prompt = ChatPromptTemplate.from_template(
+            """Your job is to determine if the user is asking for a valuation of a property or just a general question.
+            If the user is asking what their property or home is worth, you should return the word 'valuation'.
+            For any other question about the housing market, trends, prices, etc., return the word 'general'.
+            If in doubt, return 'general'.
+
+            Only respond with the single word 'valuation' or 'general'.
+
+            User request: {user_input}
+            """
+        )
+        chose_agent_llm = self.llms.get("fast")
+        if not chose_agent_llm:
+            raise ValueError("A 'fast' model must be configured in the llms dictionary.")
+
+        chose_agent_chain = chose_agent_prompt | chose_agent_llm | StrOutputParser()
+        decision = chose_agent_chain.invoke({"user_input": user_input}).lower().strip()
+
+        self.logger.info(f"--- Decision: Request classified as '{decision}' ---")
+
+        if "valuation" in decision:
+            return "valuation"
+        return "general"
 
     def _should_continue(self,state: AgentState) -> bool:
         """Determine if we should continue or end the conversation"""
@@ -518,7 +544,7 @@ class HomeAgent:
         Args:
             agent_type (Literal["fast", "expert"]): The type of agent to compile.
         """
-        print(f'AGent type input: {agent_type}')
+        print(f'Agent type input: {agent_type}')
         selected_llm = self.llms.get(agent_type).bind_tools(tools)
         if not selected_llm:
             raise ValueError(f'Invalid agent type: {agent_type}')
@@ -623,7 +649,26 @@ class HomeAgent:
         agent_instance = self._compile_agent(agent_type)
         thread = {"configurable": {"thread_id": session_id}}
 
-        # The agent.stream() itself is a generator, so we loop through it.
+        try:
+            current_state = agent_instance.get_state(thread)
+            is_new_conv = not current_state.values.get("messages", [])
+        except Exception:
+            is_new_conv = True
+
+        if is_new_conv:
+            self.logger.info(f'Creating new conversation (thread: {session_id}. Choosing type of question...')
+
+            decision = self.choose_type(user_input)
+            prompt = self.prompts.get(decision)
+            if not prompt:
+                prompt = self.prompts.get("general")
+            full_prompt = self._load_prompt(instructions_filepath="src/instructions.txt", prompt=prompt)
+
+            system_message = SystemMessage(content=full_prompt)
+            agent_instance.update_state(thread, {"messages": [system_message]})
+        else:
+            self.logger.info(f'Continueing conversation (thread: {session_id})')
+
         for chunk in agent_instance.stream({"messages": [HumanMessage(content=user_input)]}, config=thread):
             if "call_llm" in chunk:
                 ai_msg = chunk["call_llm"]["messages"][-1]
@@ -640,6 +685,7 @@ class HomeAgent:
                 if ai_msg.content:
                     final_response_content = ai_msg.content
                     yield {"type": "final_answer", "content": final_response_content}
+
     def run(self):
 
         session_id = random.randint(1000, 9999)
