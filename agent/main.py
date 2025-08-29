@@ -34,7 +34,7 @@ api_keys = ["OPENAI_API_KEY",
         "TAVILY_API_KEY",
         "LANGSMITH_API_KEY"]
 
-secret = SecretsManager(logger = logger)
+secret = SecretsManager(project_id = "sibr-market", logger = logger)
 for key in api_keys:
     try:
         key_val = secret.get_secret(key)
