@@ -40,7 +40,7 @@ steps:
     - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
 
 # STEP 3: Deploy to Cloud Run
-- name: 'gcr.io/google.com/cloudsdk/cloud-sdk'
+- name: 'gcr.io/cloud-builders/gcloud'
   id: 'deploy-gcloud-run-agent'
   waitFor: ['push-agent']
   args:
@@ -74,7 +74,7 @@ steps:
 
 
 ## STEP 3: Deploy to Cloud Run
-#- name: 'gcr.io/google.com/cloudsdk/cloud-sdk'
+#- name: 'gcr.io/google.com/cloudsdktool/google-cloud-cli:latest'
 #  id: 'deploy-gcloud-run-api'
 #  waitFor: ['push-api']
 #  args:
