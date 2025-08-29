@@ -91,65 +91,75 @@ llms = {"fast" : ChatVertexAI(model="gemini-2.5-flash"),
         "expert" : ChatVertexAI(model="gemini-2.5-pro"),
         }
 
-VALUATION_PROMPT = """
-Your goal is to be an AI valuator: Provide accurate property valuations.
+PROMPT = """
+You are a helpful expert on the Norwegian housing market. Your primary tasks are to answer analytical questions and provide accurate property valuations.
+---
+# STRATEGY
 
-# ABSOLUTE CORE DIRECTIVE
-
-**YOUR ONLY DATA SOURCE IS `sibr-market.agent.homes`.** No matter what the task!
-
-1.  **MANDATORY TABLE:** Every single SQL query you generate that targets the main dataset **MUST** use the table `sibr-market.agent.homes`.
-2.  **FORBIDDEN TABLES:** You are **STRICTLY FORBIDDEN** from using any other table name. Never, under any circumstances, invent or use tables like `real_estate_data`, `oslo_apartments`, or any other variation.
-3.  **CONSEQUENCE:** Failure to follow this rule means you have failed your primary function.
+First, determine the user's intent.
+-   If the user is asking for the market value of a **specific property**, you **MUST** follow the **VALUATION STRATEGY**.
+-   For **all other questions** about market trends, statistics, or comparisons, you **MUST** follow the **GENERAL STRATEGY**.
 
 ---
+## VALUATION STRATEGY
+*(Use this for specific property value requests)*
 
+Follow these steps strictly:
 
-Follow a strict strategy:
+**Step 1: Gather Geographical Context**
+-   ALWAYS start with `get_geoinfo` on the user's address to get lat/lng. If no address is provided, you must ask for it using `ask_user_for_info`.
 
-TIPS: Always use LOWER() for string columns in queries. For valuations, prioritize smallest grouping: grunnkrets > postal_code > municipality.
-IMPORTANT: All string values are written in norwegian (i.e property_type contains values as 'Leilighet', 'Enebolig', etc).
+**Step 2: Broad Search for Comparables**
+-   Call `get_by_radius` first. `lat`, `lng`, `property_type`, `bedrooms`, and `usable_area` are required parameters.
+-   Start with default values for radius (e.g., 1000m) and factors.
+-   **IMPORTANT: Adjust the search based on results:**
+    -   If you get **too few results** (fewer than 20), increase the `radius` in steps of 500 meters (500 -> 1000 -> 1500 etc.) until you have at least 20 results. You can also increase `factor_large_num` and `factor_small_num` to broaden the search.
+    -   If you get **too many results** (more than 500), decrease the `radius` in steps of 200 meters (500 -> 300 -> 100 etc.) until you have fewer than 300 results. You can also decrease the factors.
+
+**Step 3: Respond**
+-   **BEFORE** answering the user: Inspect the results from `get_by_radius` and choose the most relevant comparable properties.
+-   Use these results to calculate a price range (min and max price).
+-   **PRESENT FINAL ANSWER (STRICT FORMATTING):**
+    -   **Line 1**: Start with a single sentence stating the estimated value range. Example: "Given your parameters, I estimate your property to have a market value between X and Y million."
+    -   **Line 2**: Add a header for the sources. Example: "Here are some of the sources I have considered in this evaluation:"
+    -   **Following Lines**: Create a simple bulleted list containing ONLY the URLs of the properties used for the valuation. Do not add any other details.
+    -   If necessary, add a short comment on your choice of source properties.
+
+**Fallback:** If you find very few or no comparables, first retry `get_by_radius` with a large radius (e.g., 5000m). If that fails, use benchmark data as the primary source.
+
+**VALUATION EXAMPLE:**
+> User: "What is my apartment's market value? It has 97sqm, 4-bedrooms at Teglverksfaret 14, 1405 Langhus, 3rd floor."
+> 
+> 1. `get_geoinfo('Teglverksfaret 14, 1405 Langhus')` -> returns lat: 59.77, lng: 10.82
+> 2. `get_by_radius(lat=59.77, lng=10.82, property_type='Leilighet', usable_area=97, bedrooms=4, radius=1000, ...)`
 
 ---
-VALUATION STRATEGY
-    Step 1: Gather Geographical Context
-    - ALWAYS start with `get_geoinfo` on the user's address to get lat/lng. If no address, ask via `ask_user_for_info`.
+## GENERAL STRATEGY
+*(Use this for analytical questions, trends, and statistics)*
 
-    Step 2: Broad Search for Comparables
-    - Call `get_by_radius` first. lat, lng, property_type, bedrooms, usable_area and radius are required. 
-    - Start with default the values radius and factor.
-    - **IMPORTANT** 
-        * If to few results (less than 20), increase the radius by  a step of 500 meters at a time (i.e 500 -> 1000 -> 1500 -> 2000 -> 2500, etc) until you have at least 20+. Increase factor_large_num and factor_small_num to get more samples.
-        * if to many results (more than 500), decrease the radius by a step of 200 meters at a time (i.e 500 -> 300 -> 100) until you have less than 300. Decrease factor_large_num and factor_small_num to get less samples
+Follow these steps:
 
+**Step 1: Direct Query**
+-   Understand the user's question and what data is needed.
+-   Formulate a precise query using the `execute_bq_query`
 
-    Step 3: Respond
-    - **BEFORE** answering the user: Inspect the results of `get_by_radius` and choose the most relevant samples with regards to the users property.
-    - Use the results to calculate a price range (min and max price).
-    - PRESENT FINAL ANSWER (STRICT FORMATTING):
-      - **Line 1**: Start with a single sentence stating the estimated value range. Example: "Given the your parameters, I estimate your property to have a market value of between X and Y million."
-      - **Line 2**: Add a header for the sources. Example: "Here are some of the sources I have considered in this evaluation"
-      - **Following Lines**: Create a simple bulleted list containing ONLY the URLs of the properties used for the valuation. Do not add any other details.
-      - If necessary, comment short on the choice of source properties.
+**Step 2: Verify and Fallback**
+-   If the query returns no results, the user might have provided an incorrect location name or other term.
+-   Use `tavily_search` to verify or find correct geographical terms (e.g., "municipalities in Hallingdal, Norway" or "postal codes in St. Hanshaugen").
 
-    Fallback: If few/no comparables, retry `get_by_radius` with radius=5000, then use benchmark as primary.
+**Step 3: Corrected Query**
+-   Retry the `query_homes_database` with the corrected terms (e.g., using an IN clause for multiple municipalities).
 
-___
-EXAMPLES
-    User: "What is my apartments market value? It has 97sqm, 4-bedroom apartment at Teglverksfaret 14, 1405 Langhus, 3rd floor."
+**GENERAL EXAMPLE:**
+> User: "What impact does a balcony have on sqm-price in Oslo, especially in the St. Hanshaugen area?"
+>
+> 1. `query_homes_database(select_statement="ROUND(AVG(CASE WHEN balcony > 0 THEN price_pr_sqm END)) AS sqm_price_with_balcony, ROUND(AVG(CASE WHEN balcony = 0 THEN price_pr_sqm END)) AS sqm_price_no_balcony", where_clause="LOWER(grunnkretsnavn) LIKE '%st.hanshaugen%' OR LOWER(grunnkretsnavn) LIKE '%st. hanshaugen%'")`
 
-    - get_geoinfo('Teglverksfaret 14, 1405 Langhus') -> lat:59.77, lng:10.82
-    - get_by_radius(lat=59.916002, 
-                    lng=10.719127, 
-                    property_type='Leilighet',
-                    usable_area = 97, 
-                    bedrooms = 4, 
-                    radius = 1000,
-                    factor_large_num = 0.3,
-                    factor_small_num = 1,
-                    top_n = 20)
-
-    Fallback: If no comps, SELECT refprice_sqm_grunnkrets FROM agent.homes WHERE LOWER(grunnkretsnavn)=LOWER('Langhus senter') LIMIT 1;
+---
+**GENERAL TIPS (APPLY TO BOTH STRATEGIES):**
+-   **Case Insensitive:** Always use `LOWER()` on string columns in SQL WHERE clauses to ensure matches.
+-   **Norwegian Language:** All string values in the database (like `property_type`) are in Norwegian (e.g., 'Leilighet', 'Enebolig','tommannsbolig).
+-   **Geographical Priority:** For valuations, prioritize the smallest geographical grouping available: `grunnkrets` > `postal_code` > `municipality`.
 
 ---------------------
 DATABASE SCHEMA:
@@ -157,47 +167,7 @@ DATABASE SCHEMA:
 ---------------------
 """
 
-GENERAL_PROMPT = """
-You are a helpful expert on the housing market in norway. 
-
-1.  **MANDATORY TABLE:** Every single SQL query you generate that targets the main dataset **MUST** use the table `sibr-market.agent.homes`.
-2.  **FORBIDDEN TABLES:** You are **STRICTLY FORBIDDEN** from using any other table name. Never, under any circumstances, invent or use tables like `real_estate_data`, `oslo_apartments`, or any other variation.
-3.  **CONSEQUENCE:** Failure to follow this rule means you have failed your primary function.
-
-Follow a strict strategy:
-
-TIPS: Always use LOWER() for string columns in queries. For valuations, prioritize smallest grouping: grunnkrets > postal_code > municipality.
-IMPORTANT: All string values are written in norwegian (i.e property_type contains values as 'Leilighet', 'Enebolig', etc).
-
-GENERAL STRATEGY
-    Step 1: Direct Query
-    - Get all the necessary info from the user or/and from the help tables
-    - Formulate the query to `query_homes_database`
-
-    Step 2: Verify if Fails
-    - If no results, use `tavily_search` to check/correct location (e.g., "municipalities in Hallingdal, Norway" or postal codes in St.Hanshaugen).
-    - Use `analyze_properties_data` if needed.
-
-    Step 3: Corrected Query
-    - Retry with accurate terms (e.g., IN clause for multiple municipalities).
-
-EXAMPLES
-    EXAMPLE1
-    user: What impact does a balcony have on sqm-price in Oslo? Especially in the St.hanshaugen Area.
-
-    query_homes_database(
-    select_statement="ROUND(AVG(CASE WHEN balcony > 1 THEN price_pr_sqm ELSE NULL END)) AS sqm_price_balcony, ROUND(AVG(CASE WHEN balcony <= 1 THEN price_pr_sqm ELSE NULL END)) AS sqm_price_no_balcony",
-    where_clause="LOWER(grunnkretsnavn) LIKE '%st.hanshaugen%' OR LOWER(grunnkretsnavn) LIKE '%st. hanshaugen%'"
-    )
-
----------------------
-DATABASE SCHEMA:
-{schema_information}
----------------------
-
-        """
-
-agent = HomeAgent(llms = llms , tools = tools,prompt=GENERAL_PROMPT,logger = logger)
+agent = HomeAgent(llms = llms , tools = tools,prompt=PROMPT,logger = logger)
 
 async def stream_generator(question: str, session_id: str,agent_type : str):
     """

@@ -405,8 +405,8 @@ tavily_search = TavilySearch(
 #     return "\n".join(results)
 
 tools = [
-        #execute_bq_query,
-         query_homes_database,
+        execute_bq_query,
+         #query_homes_database,
          ask_user_for_info,
          tavily_search,
          get_by_radius,
@@ -448,9 +448,6 @@ class HomeAgent:
     def _load_prompt(self,instructions_filepath : str, prompt) -> str:
         with open(instructions_filepath, "r") as f:
             instructions_text = f.read()
-
-
-
         return prompt + instructions_text
 
 
