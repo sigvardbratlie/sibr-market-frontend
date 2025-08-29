@@ -28,12 +28,10 @@ function autoResizeTextarea() {
 input.addEventListener('input', autoResizeTextarea);
 
 input.addEventListener('keydown', (e) => {
-    // Hvis brukeren trykker Enter UTEN å holde Shift...
     if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();   // ...forhindre linjeskift...
-        submitButton.click(); // ...og send meldingen ved å simulere et klikk.
+        e.preventDefault();
+        submitButton.click();
     }
-    // Hvis Shift + Enter brukes, vil nettleseren automatisk legge til et linjeskift.
 });
 
 function activateChat() {
@@ -44,32 +42,26 @@ function activateChat() {
     isChatActive = true;
 }
 
-// **ROBUST FUNKSJON FOR Å GJØRE URLer KLIKKBARE**
 function linkify(text) {
-    // Finner http/https/ftp/file-lenker OG lenker som starter med www.
     const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
     return text.replace(urlRegex, (url) => {
-        // Hvis lenken ikke starter med http, legg det til
         const fullUrl = url.startsWith('www.') ? 'http://' + url : url;
         return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${url}</a>`;
     });
 }
 
-// **NY FUNKSJON FOR Å BYGGE MELDINGER**
 function addMessageToUI(text, sender, options = {}) {
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', `${sender}-message`);
 
     const textElement = document.createElement('p');
-    // Bruker innerHTML for å rendere lenker. Dette er nå trygt pga. regex-en.
     textElement.innerHTML = linkify(text);
     messageElement.appendChild(textElement);
 
     if (options.isThinking) {
-        // Bygg "thinking"-seksjonen dynamisk
         const details = document.createElement('details');
         details.className = 'thinking-details';
-        details.open = true; // Start åpen for å vise prosessen
+        details.open = true;
 
         const summary = document.createElement('summary');
         summary.className = 'thinking-summary';
@@ -96,7 +88,6 @@ function addMessageToUI(text, sender, options = {}) {
     return messageElement;
 }
 
-
 form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const messageText = input.value.trim();
@@ -109,7 +100,6 @@ form.addEventListener('submit', async (event) => {
     autoResizeTextarea();
     input.focus();
 
-    // Veksle knapper: vis stopp, skjul send
     stopButton.classList.remove('hidden');
     submitButton.classList.add('hidden');
 
@@ -120,14 +110,14 @@ form.addEventListener('submit', async (event) => {
     const thinkingSpinner = agentMessageElement.querySelector('.spinner');
     const thinkingSummaryText = agentMessageElement.querySelector('.thinking-summary span');
 
-    agentController = new AbortController(); // Opprett en ny controller for dette kallet
+    agentController = new AbortController();
 
     try {
-        const response = await fetch('https://agent-86613370495.europe-west1.run.app/ask-agent', {
+        const response = await fetch('https://agent-homes-86613370495.europe-west1.run.app/ask-agent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ question: messageText, session_id: sessionId }),
-            signal: agentController.signal // Koble controlleren til fetch-kallet
+            signal: agentController.signal
         });
 
         if (!response.ok) throw new Error(`Serverfeil: ${response.status}`);
@@ -142,7 +132,7 @@ form.addEventListener('submit', async (event) => {
             if (done) break;
 
             if (isFirstChunk) {
-                agentTextElement.textContent = "";
+                agentTextElement.textContent = ""; // Tømmer den innledende "..."
                 isFirstChunk = false;
             }
 
@@ -150,19 +140,30 @@ form.addEventListener('submit', async (event) => {
             const lines = chunk.split('\n\n').filter(line => line.startsWith('data:'));
 
             for (const line of lines) {
-                const data = line.substring(5).trim();
-                if (data.startsWith('Final Answer:')) {
-                    finalAnswer += data.substring(13).trim() + '\n';
-                } else if (data.startsWith('Thought:') || data.startsWith('Observation:')) {
-                    const logEntry = document.createElement('p');
-                    logEntry.textContent = data;
-                    thinkingContent.appendChild(logEntry);
-                    thinkingContent.scrollTop = thinkingContent.scrollHeight;
+                const jsonString = line.substring(5).trim();
+                if (!jsonString) continue;
+
+                try {
+                    const data = JSON.parse(jsonString);
+
+                    if (data.type === 'final_answer') {
+                        // Bygg opp det endelige svaret
+                        finalAnswer += data.content;
+                    } else if (data.type === 'status') {
+                        // Vis status/tanker i "thinking" boksen
+                        const logEntry = document.createElement('p');
+                        logEntry.textContent = data.content;
+                        thinkingContent.appendChild(logEntry);
+                        thinkingContent.scrollTop = thinkingContent.scrollHeight;
+                    }
+                } catch (e) {
+                    console.error("Klarte ikke å parse JSON fra stream:", jsonString, e);
                 }
             }
         }
 
-        agentTextElement.innerHTML = linkify(finalAnswer.trim() || "Fikk ikke et gyldig svar.");
+        // Når alt er ferdig, sett det endelige svaret
+        agentTextElement.innerHTML = linkify(finalAnswer.trim() || "Fikk ikke et gyldig svar fra agenten.");
 
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -172,7 +173,6 @@ form.addEventListener('submit', async (event) => {
             agentTextElement.textContent = "Beklager, en teknisk feil oppstod.";
         }
     } finally {
-        // Rydd opp og veksle knapper tilbake, uansett resultat
         thinkingSpinner.classList.add('hidden');
         thinkingSummaryText.textContent = 'Vis tankeprosess';
         thinkingDetails.open = false;
