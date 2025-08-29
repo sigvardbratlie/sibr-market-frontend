@@ -19,7 +19,6 @@ steps:
       echo "Keyword found. Proceeding with build."
     fi
 
-
 ## =========== AGENT =================
 # STEP 1: Build the Docker container
 - name: 'gcr.io/cloud-builders/docker'
