@@ -440,7 +440,7 @@ class HomeAgent:
         self.logger.set_level("DEBUG")
         self.tools = tools
         self.llms = llms
-        self.prompt = self._load_prompt(instructions_filepath="src/instructions.txt", prompt=prompt)
+        self.prompt = prompt
         self.checkpointer = FirestoreSaver(project_id="sibr-market",database_id="homes-agent")
         # self.checkpointer = InMemorySaver()
         #self.agent = self._compile_agent()
@@ -620,7 +620,20 @@ class HomeAgent:
         agent_instance = self._compile_agent(agent_type)
         thread = {"configurable": {"thread_id": session_id}}
 
-        # The agent.stream() itself is a generator, so we loop through it.
+        try:
+            current_state = agent_instance.get_state(thread)
+            is_new_conv = not current_state.values.get("messages", [])
+        except Exception:
+            is_new_conv = True
+
+        if is_new_conv:
+            self.logger.info(f'Creating new conversation (thread: {session_id}. Choosing type of question...')
+            prompt = self._load_prompt(instructions_filepath="src/instructions.txt", prompt=self.prompt)
+            system_message = SystemMessage(content=prompt)
+            agent_instance.update_state(thread, {"messages": [system_message]})
+        else:
+            self.logger.info(f'Continueing conversation (thread: {session_id})')
+
         for chunk in agent_instance.stream({"messages": [HumanMessage(content=user_input)]}, config=thread):
             if "call_llm" in chunk:
                 ai_msg = chunk["call_llm"]["messages"][-1]
