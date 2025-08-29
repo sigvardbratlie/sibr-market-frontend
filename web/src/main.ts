@@ -1,4 +1,5 @@
-import "style.css"
+// STEG 1: RIKTIG IMPORT AV CSS
+import './style.css';
 
 // Hent referanser til HTML-elementene
 const sessionId = crypto.randomUUID();
@@ -13,34 +14,43 @@ let agentController: AbortController;
 
 // Sjekker at skjemaet faktisk finnes for å unngå krasj
 if (!form) {
-    throw new Error("Kritisk feil: Fant ikke skjemaet med id 'input-form'.");
+    console.error("Kritisk feil: Fant ikke skjemaet med id 'input-form'. Sjekk index.html.");
+} else {
+    // All logikk som er avhengig av 'form' legges her
+    setupEventListeners();
 }
 
-insightsButton.addEventListener('click', () => {
-    window.location.href = 'src/insights.html';
-});
+function setupEventListeners() {
+    insightsButton.addEventListener('click', () => {
+        window.location.href = 'src/insights.html';
+    });
+
+    stopButton.addEventListener('click', () => {
+        if (agentController) {
+            agentController.abort();
+            console.log("Agent request aborted by user.");
+        }
+    });
+
+    input.addEventListener('input', autoResizeTextarea);
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submitButton.click();
+        }
+    });
+
+    form.addEventListener('submit', handleFormSubmit);
+}
+
 
 let isChatActive = false;
-
-stopButton.addEventListener('click', () => {
-    if (agentController) {
-        agentController.abort();
-        console.log("Agent request aborted by user.");
-    }
-});
 
 function autoResizeTextarea() {
     input.style.height = 'auto';
     input.style.height = `${input.scrollHeight}px`;
 }
-input.addEventListener('input', autoResizeTextarea);
-
-input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        submitButton.click();
-    }
-});
 
 function activateChat() {
     if (isChatActive) return;
@@ -92,7 +102,7 @@ function addMessageToUI(text: string, sender: 'user' | 'agent', options: { isThi
     return messageElement;
 }
 
-form.addEventListener('submit', async (event) => {
+async function handleFormSubmit(event: Event) {
     event.preventDefault();
     const messageText = input.value.trim();
     if (messageText === '') return;
@@ -109,7 +119,6 @@ form.addEventListener('submit', async (event) => {
 
     const agentMessageElement = addMessageToUI("...", 'agent', { isThinking: true });
     const agentTextElement = agentMessageElement.querySelector('p') as HTMLParagraphElement;
-    // KORRIGERT LINJE:
     const thinkingDetails = agentMessageElement.querySelector('.thinking-details') as HTMLDetailsElement;
     const thinkingContent = agentMessageElement.querySelector('.thinking-content') as HTMLElement;
     const thinkingSpinner = agentMessageElement.querySelector('.spinner') as HTMLElement;
@@ -177,10 +186,9 @@ form.addEventListener('submit', async (event) => {
     } finally {
         thinkingSpinner.classList.add('hidden');
         thinkingSummaryText.textContent = 'Vis tankeprosess';
-        // Denne linjen vil nå fungere korrekt:
         thinkingDetails.open = false;
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
         stopButton.classList.add('hidden');
         submitButton.classList.remove('hidden');
     }
-});
+}
