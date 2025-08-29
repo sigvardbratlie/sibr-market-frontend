@@ -11,6 +11,7 @@ import numpy as np
 import os
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 load_dotenv()
 cred_filename = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_FILENAME")
@@ -226,3 +227,8 @@ def get_homes(municipality: Optional[str] = None, county: Optional[str] = None, 
 def root():
     """Enkel velkomstmelding og link til API-dokumentasjonen."""
     return {"message": "Velkommen til Boligdata API. Gå til /docs for å se dokumentasjonen."}
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT",8080))
+    uvicorn.run(api, host="0.0.0.0", port=port)
