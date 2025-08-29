@@ -44,7 +44,6 @@ steps:
   id: 'deploy-gcloud-run-agent'
   waitFor: ['push-agent']
   args:
-    - gcloud
     - run
     - deploy
     - 'agent'
@@ -52,6 +51,7 @@ steps:
     - --region=europe-west1
     - --platform=managed
     - --allow-unauthenticated
+    - --quiet
 
 ## =========== API =================
 ## STEP 1: Build the Docker container
