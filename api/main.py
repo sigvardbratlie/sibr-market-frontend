@@ -184,7 +184,7 @@ def get_homes_by_district_oslo(name: Optional[str] = None):
 @api.get('/homes', response_model=List[Dict[str, Any]], tags=["Raw Homes Data"])
 def get_homes(municipality: Optional[str] = None, county: Optional[str] = None, postal_code: Optional[int] = None,
               property_type: Optional[str] = None, ownership_type: Optional[str] = None):
-    base_query = '''SELECT * FROM clean.homes'''
+    base_query = '''SELECT * FROM agent.homes'''
     conditions = []
     query_params = []
 

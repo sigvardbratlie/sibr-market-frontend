@@ -2,7 +2,6 @@ options:
   logging: CLOUD_LOGGING_ONLY
 serviceAccount: cloud-build@sibr-market.iam.gserviceaccount.com
 
-
 steps:
 # STEP 0: Check the commit message.
 - name: 'gcr.io/cloud-builders/git'
