@@ -1,4 +1,5 @@
 # main.py
+from typing import Optional,Literal
 from sibr_module import SecretsManager,Logger
 from dotenv import load_dotenv
 import asyncio
@@ -10,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from pathlib import Path
+from langchain_google_vertexai import ChatVertexAI
+from langchain_openai import ChatOpenAI
 
 load_dotenv()
 cred_filename = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_FILENAME")
@@ -30,7 +33,7 @@ api_keys = [
         "OPENAI_API_KEY",
         #"ANTHROPIC_API_KEY",
         #"GROQ_API_KEY",
-        #"GOOGLE_API_KEY",
+        "GOOGLE_API_KEY",
         #"FIRECRAWL_API_KEY",
         "TAVILY_API_KEY",
         "LANGSMITH_API_KEY"
@@ -52,9 +55,8 @@ logger.info(f'All keys loaded')
 
 
 # ===== SETUP FASTAPI & AGENT =======
-from src.agent import HomeAgent,llm, tools
+from src.agent import HomeAgent, tools
 app = FastAPI()
-agent = HomeAgent(llm = llm , tools = tools,logger = logger)
 
 origins = [
     # Lokal utvikling
@@ -82,8 +84,15 @@ app.add_middleware(
 class Query(BaseModel):
     question: str
     session_id: str
+    agent_type: Optional[Literal["fast","expert"]] = "expert"
 
-async def stream_generator(question: str, session_id: str):
+#llm = ChatOpenAI(model = "gpt-4o",temperature=0.2)
+llms = {"fast" : ChatVertexAI(model="gemini-2.5-flash"),
+        "expert" : ChatVertexAI(model="gemini-2.5-pro"),
+        }
+agent = HomeAgent(llms = llms , tools = tools,logger = logger)
+
+async def stream_generator(question: str, session_id: str,agent_type : str):
     """
     Denne funksjonen kaller agentens streaming-metode og formaterer output
     for Server-Sent Events (SSE), som frontend forventer.
@@ -91,7 +100,7 @@ async def stream_generator(question: str, session_id: str):
     thread = {"configurable": {"thread_id": session_id}}
 
     # agent.stream_response er en generator, så vi kan iterere over den
-    for response_part in agent.stream_response(question, thread):
+    for response_part in agent.stream_response(question, thread, agent_type):
         # Formater dataen som `data: {...}\n\n` som er standard for SSE
         data_string = json.dumps(response_part)
         yield f"data: {data_string}\n\n"
@@ -105,7 +114,7 @@ async def ask_agent_endpoint(query: Query):
     som bruker vår `stream_generator`.
     """
     return StreamingResponse(
-        stream_generator(query.question, query.session_id),
+        stream_generator(query.question, query.session_id, query.agent_type),
         media_type="text/event-stream"
     )
 

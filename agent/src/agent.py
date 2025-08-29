@@ -1,13 +1,14 @@
 import json
 import pandas as pd
 from langgraph.graph import StateGraph,END
-from typing import Dict,TypedDict,List,Union,Annotated,Sequence,Optional
+from typing import Dict,TypedDict,List,Union,Annotated,Sequence,Optional, Literal
 import random
 from langgraph.graph.message import add_messages
 from langchain_core.messages import HumanMessage,AIMessage,SystemMessage,BaseMessage,ToolMessage
 from langchain_openai import ChatOpenAI,OpenAIEmbeddings
 from langchain_tavily import TavilySearch
 from langchain_core.tools import tool
+from langchain_core.language_models.chat_models import BaseChatModel
 from dotenv import load_dotenv
 from sibr_module import Logger
 from google.cloud import bigquery
@@ -41,7 +42,15 @@ def execute_bq_query(query: str) -> str:
         return f"An error occurred: {e}"
 
 @tool
-def get_by_radius(lat,lng,property_type,usable_area, bedrooms,radius = 1000,factor_large_num : float = 0.3,factor_small_num : int = 1,top_n = 20):
+def get_by_radius(lat : float,
+                  lng : float,
+                  property_type : str,
+                  usable_area : int|float,
+                  bedrooms : int,
+                  radius : int = 1000,
+                  factor_large_num : float = 0.3,
+                  factor_small_num : int = 1,
+                  top_n : int = 20):
     """
     Finds comparable properties within a radius, using a set of specific filters to narrow down the search.
     It is crucial to use all available information from the user's query as filters.
@@ -271,7 +280,7 @@ def get_grunnkrets(lat : float, lng : float):
               grunnkretsnavn,
               grunnkretsnummer
             FROM
-              `sibr-market.admin.geo_grunnkretser_norge`
+              `sibr-market.admin.bsu_norway`
             WHERE
               ST_CONTAINS(geometry, ST_GEOGPOINT({lng},{lat}))
             """
@@ -285,23 +294,42 @@ def get_grunnkrets(lat : float, lng : float):
         return f"An error occurred: {e}"
 
 @tool
-def get_municipality(postal_code : str = None, postal_place : str = None):
-    """Function to get the correct municipality"""
-    if postal_code is None and postal_place is None:
-        raise ValueError(f'Either postal_code or postal_place must be provided')
-    if postal_code:
-        query  = f"""
-                SELECT municipality FROM admin.geo_norge
-                WHERE postal_code = {postal_code}
-                """
-    elif postal_place:
-        query = f"""
-                SELECT municipality FROM admin.geo_norge
-                WHERE LOWER(postal_place) LIKE LOWER('%{postal_place}%')
-                """
+def get_postal_code(lat : float, lng : float):
+    """A function to get the corresponding grunnkrets to a coordinate (lat,lng)"""
+
+    query = f"""
+            SELECT
+              postnummer,
+              poststed
+            FROM
+              `sibr-market.admin.postal_norway`
+            WHERE
+              ST_CONTAINS(geometry, ST_GEOGPOINT({lng},{lat}))
+            """
     try:
         client = bigquery.Client()
-        print(f"\n--- EXECUTING QUERY ---\n{query}\n-----------------------\n")
+        #print(f"\n--- EXECUTING QUERY ---\n{query}\n-----------------------\n")
+        df = client.query(query).to_dataframe()
+        result_json = df.to_json(orient='records', date_format='iso')
+        return result_json if not df.empty else "Query executed successfully, but returned no results."
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+@tool
+def get_municipality(lat : float, lng : float):
+    """A function to get the corresponding grunnkrets to a coordinate (lat,lng)"""
+
+    query = f"""
+            SELECT
+              kommunenummer
+            FROM
+              `sibr-market.admin.bsu_norway`
+            WHERE
+              ST_CONTAINS(geometry, ST_GEOGPOINT({lng},{lat}))
+            """
+    try:
+        client = bigquery.Client()
+        #print(f"\n--- EXECUTING QUERY ---\n{query}\n-----------------------\n")
         df = client.query(query).to_dataframe()
         result_json = df.to_json(orient='records', date_format='iso')
         return result_json if not df.empty else "Query executed successfully, but returned no results."
@@ -340,12 +368,12 @@ tools = [execute_bq_query,
          ask_user_for_info,
          tavily_search,
          get_by_radius,
-         #process_properties,
          get_geoinfo,
          get_grunnkrets,
+         get_postal_code,
          get_municipality,
          ]
-llm = ChatOpenAI(model = "gpt-4o",temperature=0.2)
+
 
 class AgentState(TypedDict):
     messages : Annotated[Sequence[BaseMessage],add_messages]
@@ -354,112 +382,41 @@ class HomeAgent:
     """
     An Agent designet to give property valuations and answer questions on the norwegian housing market.
     """
-    def __init__(self,llm, tools : List[tool],logger : Logger = None):
+    def __init__(self,llms : dict[str, BaseChatModel], tools : List[tool],logger : Logger = None):
+        """
+                Initializes the HomeAgent.
+                Args:
+                    llms (dict[str, BaseChatModel]): A dictionary mapping agent types to LLM models.
+                    tools (List[tool]): A list of tools the agent can use.
+                    logger (Logger, optional): The logger instance. Defaults to None.
+                """
         if logger is None:
             logger = Logger("HomeAgent")
         self.logger = logger
         self.logger.set_level("DEBUG")
         self.tools = tools
-        self.llm = llm.bind_tools(tools)
+        self.llms = llms
         self.prompt = self._load_prompt("src/instructions.txt")
         self.checkpointer = FirestoreSaver(project_id="sibr-market",database_id="homes-agent")
         # self.checkpointer = InMemorySaver()
-        self.agent = self._compile_agent()
+        #self.agent = self._compile_agent()
 
     def _load_prompt(self,instructions_filepath : str) -> str:
         with open(instructions_filepath, "r") as f:
             instructions_text = f.read()
 
-        BASE_SYSTEM_PROMPT_222 = """
-You are a helpful and expert data analyst assistant for real estate data in Norway.
-Your goal is twofold:
-1.  Be an AI valuator, where you help the user provide an accurate and good valuation of their property.
-2.  Respond to the user's questions as a general expert on housing.
-
-To achieve this, you must follow a strict execution strategy.
-**TIPS:** Remember always to method `LOWER()` in all queries involving string columns! As some datasets has 'Oslo', others have 'OSLO' and others have 'oslo'
-For valuation tasks, use the VALUATION STRATEGY, otherwise use the GENERAL STRATEGY.
-
-        ---
-## VALUATION STRATEGY
-    **Step 1: Always Gather Geographical Context**
-    * Regardless of the user's query, **always start** by using the `get_geoinfo` tool on the address they provide. This will give you the crucial `lat` and `lng` coordinates for the property. If the user hasn't provided an address, you must ask for it.
-    
-    **Step 2: Broad Search for Potential Comparables**
-    * Your first action is to call the `get_by_radius` tool.
-    * Parse ALL property details from the user's message (`property_type`, `bedrooms`, `usable_area`, etc.).
-    * Construct the `filters` dictionary for the tool call. Use a WIDE search radius of 2000 meters and apply only the most essential filters (i.e `property_type`). The goal here is to get a good list of potential candidates. Do not include filters like build_year or any kind of facilities.
-
-    **Step 3: Process and Refine for Final Valuation**
-    * **CRITICAL:** Take the JSON output from `get_by_radius` and immediately pass it as the `properties_json` argument to the `process_properties` tool.
-    * Use the `extra_filters` argument in `process_properties` to apply stricter, user-specific requirements (e.g., `{'eq_lift': True, 'eq_parking': True}`). This is how you refine the search.
-    * The `process_properties` tool will give you the final, calculated `average_sqm_price` and the `number_of_comparables_used`.
-
-    **Step 4: Formulate the Response**
-    * Use the final, processed result from `process_properties`.
-    * Calculate the final valuation: `final_value = result['average_sqm_price'] * user's_area`.
-    * Before presenting your result, double check the price against the benchmark `refprice_sqm_grunnkrets` x the users usable_area (or `refprice_sqm_postal` if grunnkrets does not exist), to see if there is a large difference. If so, comment on it.
-    * PRESENT FINAL ANSWER (STRICT RULES)
-        * Always make sure to multiply the reference price with the users own area, so that the user gets a final price presented for them, not a pr sqm price.
-        * Always make sure to present all urls used a sources together with the final answer, so that the user can inspect and validate the final result.
-        * Mention the benchmark price `refprice_sqm_grunnkrets` if the distance is mentionable. 
-
-        ---
-## GENERAL QUERY STRATEGY
-
-    This strategy is for answering general questions about the housing market (e.g., "What is the average price for houses in Hallingdal?").
-
-    **Step 1: Attempt a Direct Database Query**
-        * Use your best judgment to formulate a query with `execute_bq_query` based on the user's question. For example, `SELECT AVG(price) FROM agent.homes WHERE LOWER(municipality) = LOWER('hallingdal')`.
-
-    **Step 2: Verify and Investigate if the Query Fails**
-        * If the query from Step 1 returns no results, **do not immediately tell the user you can't find data.**
-        * Your next action is to use the `tavily_search` tool to investigate the location. For example, run a search like "municipalities in Hallingdal, Norway".
-        * The goal of this search is to determine if the user's term is a region, an old name, or misspelled, and to find the correct, official municipality or postal code names associated with it.
-        * You can also use the `analyze_properties_data` tool in order to analyse the data.
-
-    **Step 3: Execute a Corrected Query**
-        * Using the list of correct locations from your web search, formulate a new, more accurate query. You will likely need to use an `IN` clause.
-        * Example: `SELECT AVG(price) FROM agent.homes WHERE municipality IN ('Ål', 'Flå', 'Gol', 'Hemsedal', 'Hol', 'Nesbyen')`.
-        * Finally, present this corrected data to the user, and briefly explain what you did (e.g., "Hallingdal is a region that includes several municipalities. The average price across these municipalities is...").
-
----
-
-## EXAMPLES
-
-    ### VALUATION EXAMPLE
-
-    -- **Primary Method (Radius Search Tool Call):**
-    -- User asks for a valuation of their 97sqm, 4-bedroom apartment at Teglverksfaret 14, 1405 Langhus in 3rd floor.
-    -- First, get_geoinfo('Teglverksfaret 14, 1405 Langhus') -> returns lat: 59.77, lng: 10.82
-    -- Then, call the wide-search tool:
-    TOOL CALL: get_by_radius(filters={"lat": 59.77, "lng": 10.82, "radius": 500, "property_type": "Leilighet"})
-
-    -- The agent now receives the raw JSON output from the tool. It should immediately take this output and process it using the next tool.
-    -- Then, call the processing tool with the previous output and all the specific user details:
-    TOOL CALL: process_properties(properties_json="<result_from_get_by_radius>", extra_filters={"usable_area_min": 80, "usable_area_max": 120, "bedrooms_min": 3, "bedrooms_max": 5, "floor" = 3})
-
-        -- **Fallback Method (Pre-calculated average):**
-        -- "Radius search found no direct comparables for a specific property. Get the pre-calculated grunnkrets average."
-        SELECT refprice_sqm_grunnkrets, n_grunnkrets
-        FROM `sibr-market.agent.homes`
-        WHERE LOWER(grunnkretsnavn) = LOWER('Langhus senter')
-        LIMIT 1;
-
-    ## GENERAL EXAMPLE
-        -- **General Query (Corrected after web search):**
-        SELECT ROUND(AVG(price_pr_sqm)) as average_sqm_price, COUNT(*) as number_of_properties
-        FROM `sibr-market.agent.homes`
-        WHERE municipality IN ('Ål', 'Flå', 'Gol', 'Hemsedal', 'Hol', 'Nesbyen');
-
----------------------
-DATABASE SCHEMA:
-{schema_information}
----------------------
-"""
-
         BASE_SYSTEM_PROMPT = """
 You are a helpful and expert data analyst assistant for real estate data in Norway.
+
+# ABSOLUTE CORE DIRECTIVE
+
+**YOUR ONLY DATA SOURCE IS `sibr-market.agent.homes`.** No matter what the task!
+
+1.  **MANDATORY TABLE:** Every single SQL query you generate that targets the main dataset **MUST** use the table `sibr-market.agent.homes`.
+2.  **FORBIDDEN TABLES:** You are **STRICTLY FORBIDDEN** from using any other table name. Never, under any circumstances, invent or use tables like `real_estate_data`, `oslo_apartments`, or any other variation.
+3.  **CONSEQUENCE:** Failure to follow this rule means you have failed your primary function.
+
+---
 
 Your goal is twofold:
 1. Be an AI valuator: Provide accurate property valuations.
@@ -499,10 +456,11 @@ GENERAL STRATEGY
     For non-valuation questions (e.g., "Average price in Hallingdal?"):
     
     Step 1: Direct Query
-    - Formulate `execute_bq_query` (e.g., SELECT AVG(price) FROM agent.homes WHERE LOWER(municipality) = LOWER('hallingdal')).
+    - Get all the necessary info from the help tables if the users query demands it. 
+    - Formulate `execute_bq_query`. Always try reading from the main table `agent.homes` first.
     
     Step 2: Verify if Fails
-    - If no results, use `tavily_search` to check/correct location (e.g., "municipalities in Hallingdal, Norway").
+    - If no results, use `tavily_search` to check/correct location (e.g., "municipalities in Hallingdal, Norway" or postal codes in St.Hanshaugen).
     - Use `analyze_properties_data` if needed.
     
     Step 3: Corrected Query
@@ -512,7 +470,7 @@ GENERAL STRATEGY
 EXAMPLES
     
     VALUATION EXAMPLE
-    User: "Verdi av 97sqm, 4-bedroom apartment at Teglverksfaret 14, 1405 Langhus, 3rd floor."
+    User: "What is my apartments market value? It has 97sqm, 4-bedroom apartment at Teglverksfaret 14, 1405 Langhus, 3rd floor."
     
     - get_geoinfo('Teglverksfaret 14, 1405 Langhus') -> lat:59.77, lng:10.82
     - get_by_radius(lat=59.916002, 
@@ -528,7 +486,18 @@ EXAMPLES
     Fallback: If no comps, SELECT refprice_sqm_grunnkrets FROM agent.homes WHERE LOWER(grunnkretsnavn)=LOWER('Langhus senter') LIMIT 1;
     
     GENERAL EXAMPLE
-    SELECT ROUND(AVG(price_pr_sqm)) as average_sqm_price FROM agent.homes WHERE municipality IN ('Ål', 'Flå', 'Gol', 'Hemsedal', 'Hol', 'Nesbyen');
+    user: What impact does a balcony have on sqm-price in Oslo? Especially in the St.hanshaugen Area.
+    
+    SELECT 
+      ROUND(AVG(CASE
+          WHEN balcony>1 THEN price_pr_sqm
+          ELSE NULL
+      END)) AS sqm_price_balcony,
+      ROUND(AVG(CASE
+          WHEN balcony<=1 THEN price_pr_sqm
+          ELSE NULL
+      END)) AS sqm_price_no_balcony,
+    FROM agent.homes WHERE LOWER(grunnkretsnavn) LIKE '%st.hanshaugen%' OR LOWER(grunnkretsnavn) LIKE '%st. hanshaugen%'
 
 ---------------------
 DATABASE SCHEMA:
@@ -590,14 +559,28 @@ DATABASE SCHEMA:
         self.logger.info(f'Tools execution complete')
         return {"messages": results}
 
-    def _call_llm(self,state: AgentState) -> AgentState:
-        """Function to call the LLM with the current state."""
-        message = self.llm.invoke(state["messages"])
+    def _call_llm(self,state: AgentState, llm_with_tools : BaseChatModel) -> AgentState:
+        """Function to call the LLM with the current state.
+
+        """
+        message = llm_with_tools.invoke(state["messages"])
         return {'messages': [message]}
 
-    def _compile_agent(self):
+    def _compile_agent(self,agent_type : Literal["fast","expert"]):
+        """
+        Compiles the agent graph with the selected LLM.
+        Args:
+            agent_type (Literal["fast", "expert"]): The type of agent to compile.
+        """
+        print(f'AGent type input: {agent_type}')
+        selected_llm = self.llms.get(agent_type).bind_tools(tools)
+        if not selected_llm:
+            raise ValueError(f'Invalid agent type: {agent_type}')
+
+        llm = selected_llm.bind_tools(self.tools)
+
         graph = StateGraph(AgentState)
-        graph.add_node("call_llm", self._call_llm)
+        graph.add_node("call_llm", lambda state: self._call_llm(state,llm_with_tools=llm))
         graph.add_node("call_tool", self._call_tool)
         graph.set_entry_point("call_llm")
         graph.add_edge("call_tool", "call_llm")
@@ -650,7 +633,7 @@ DATABASE SCHEMA:
         print(f'\nAI: \t {ai_response}')
 
     # This is a new, UI-compatible method in your HomeAgent class
-    def stream_response(self, user_input: str, thread: dict):
+    def __ia_stream_response(self, user_input: str, thread: dict, agent_type : Literal["fast", "expert"]):
         """
         This is a generator function that yields status updates and the final response.
         """
@@ -687,6 +670,32 @@ DATABASE SCHEMA:
             #self.logger.info(f'\nAI: \t {final_response_content}')
             yield {"type": "final_answer", "content": final_response_content}
 
+    def stream_response(self, user_input: str, session_id: str, agent_type: Literal["fast", "expert"]):
+        """
+        This is a generator function that yields status updates and the final response.
+        """
+        agent_instance = self._compile_agent(agent_type)
+        thread = {"configurable": {"thread_id": session_id}}
+
+        # The agent.stream() itself is a generator, so we loop through it.
+        for chunk in agent_instance.stream({"messages": [HumanMessage(content=user_input)]}, config=thread):
+            if "call_llm" in chunk:
+                ai_msg = chunk["call_llm"]["messages"][-1]
+                if ai_msg.tool_calls:
+                    tool_call = ai_msg.tool_calls[0]
+                    tool_name = tool_call['name']
+                    if tool_name == 'get_geoinfo':
+                        yield {"type": "status", "content": "🧠 Finding geographical information..."}
+                    elif tool_name == 'get_grunnkrets':
+                        yield {"type": "status", "content": "🧠 Identifying the specific sub-district..."}
+                    elif tool_name == 'execute_bq_query':
+                        yield {"type": "status", "content": "🧠 Searching the database..."}
+                    elif tool_name == 'tavily_search':
+                        yield {"type": "status", "content": "🧠 Searching online for more context..."}
+
+                if ai_msg.content:
+                    final_response_content = ai_msg.content
+                    yield {"type": "final_answer", "content": final_response_content}
     def run(self):
 
         session_id = random.randint(1000, 9999)
@@ -712,6 +721,7 @@ DATABASE SCHEMA:
 
 
 if __name__ == "__main__":
+    llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
     #session_id = "session123"
     agent = HomeAgent(llm = llm,tools=tools)
     agent.run()

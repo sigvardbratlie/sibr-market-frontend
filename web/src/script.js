@@ -7,17 +7,27 @@ const initialView = document.getElementById('initial-view');
 const insightsButton = document.querySelector('.top-buttons').children[1];
 const submitButton = document.getElementById('send-button');
 const stopButton = document.getElementById('stop-button');
+const agentTypeSelect = document.getElementById('agent-type-select'); // NY linje
+
 let agentController;
+let currentAgentType = "expert"; // Standardvalg
+let isChatActive = false;
+
+// const endpointUrl = 'https://agent-86613370495.europe-west1.run.app/ask-agent'
+const endpointUrl = "http://0.0.0.0:8080/ask-agent"
 
 insightsButton.addEventListener('click', () => { window.location.href = 'src/insights.html'; });
-
-let isChatActive = false;
 
 stopButton.addEventListener('click', () => {
     if (agentController) {
         agentController.abort(); // Avbryter fetch-kallet
         console.log("Agent request aborted by user.");
     }
+});
+
+
+agentTypeSelect.addEventListener('change', (event) => {
+    currentAgentType = event.target.value;
 });
 
 // Auto-resize for textarea
@@ -33,7 +43,6 @@ input.addEventListener('keydown', (e) => {
         submitButton.click();
     }
 });
-
 
 function activateChat() {
     if (isChatActive) return;
@@ -90,12 +99,6 @@ function addMessageToUI(text, sender, options = {}) {
 }
 
 form.addEventListener('submit', async (event) => {
-    console.log('Form submit event triggered!');
-
-    submitButton.addEventListener('click', () => {
-    console.log('Send button clicked!');
-});
-
     event.preventDefault();
     const messageText = input.value.trim();
     if (messageText === '') return;
@@ -107,6 +110,7 @@ form.addEventListener('submit', async (event) => {
     autoResizeTextarea();
     input.focus();
 
+    // Veksle knapper: vis stopp, skjul send
     stopButton.classList.remove('hidden');
     submitButton.classList.add('hidden');
 
@@ -117,14 +121,18 @@ form.addEventListener('submit', async (event) => {
     const thinkingSpinner = agentMessageElement.querySelector('.spinner');
     const thinkingSummaryText = agentMessageElement.querySelector('.thinking-summary span');
 
-    agentController = new AbortController();
+    agentController = new AbortController(); // Opprett en ny controller for dette kallet
 
     try {
-        const response = await fetch('https://agent-homes-86613370495.europe-west1.run.app/ask-agent', {
+        const response = await fetch(endpointUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: messageText, session_id: sessionId }),
-            signal: agentController.signal
+            body: JSON.stringify({
+                question: messageText,
+                session_id: sessionId,
+                agent_type: currentAgentType // Legg til denne linjen
+            }),
+            signal: agentController.signal // Koble controlleren til fetch-kallet
         });
 
         if (!response.ok) throw new Error(`Serverfeil: ${response.status}`);
@@ -139,7 +147,7 @@ form.addEventListener('submit', async (event) => {
             if (done) break;
 
             if (isFirstChunk) {
-                agentTextElement.textContent = ""; // Tømmer den innledende "..."
+                agentTextElement.textContent = "";
                 isFirstChunk = false;
             }
 
@@ -147,30 +155,20 @@ form.addEventListener('submit', async (event) => {
             const lines = chunk.split('\n\n').filter(line => line.startsWith('data:'));
 
             for (const line of lines) {
-                const jsonString = line.substring(5).trim();
-                if (!jsonString) continue;
-
-                try {
-                    const data = JSON.parse(jsonString);
-
-                    if (data.type === 'final_answer') {
-                        // Bygg opp det endelige svaret
-                        finalAnswer += data.content;
-                    } else if (data.type === 'status') {
-                        // Vis status/tanker i "thinking" boksen
-                        const logEntry = document.createElement('p');
-                        logEntry.textContent = data.content;
-                        thinkingContent.appendChild(logEntry);
-                        thinkingContent.scrollTop = thinkingContent.scrollHeight;
-                    }
-                } catch (e) {
-                    console.error("Klarte ikke å parse JSON fra stream:", jsonString, e);
+                const data = line.substring(5).trim();
+                const parsedData = JSON.parse(data);
+                if (parsedData.type === 'final_answer') {
+                    finalAnswer += parsedData.content + '\n';
+                } else if (parsedData.type === 'status') {
+                    const logEntry = document.createElement('p');
+                    logEntry.textContent = parsedData.content;
+                    thinkingContent.appendChild(logEntry);
+                    thinkingContent.scrollTop = thinkingContent.scrollHeight;
                 }
             }
         }
 
-        // Når alt er ferdig, sett det endelige svaret
-        agentTextElement.innerHTML = linkify(finalAnswer.trim() || "Fikk ikke et gyldig svar fra agenten.");
+        agentTextElement.innerHTML = linkify(finalAnswer.trim() || "Fikk ikke et gyldig svar.");
 
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -180,6 +178,7 @@ form.addEventListener('submit', async (event) => {
             agentTextElement.textContent = "Beklager, en teknisk feil oppstod.";
         }
     } finally {
+        // Rydd opp og veksle knapper tilbake, uansett resultat
         thinkingSpinner.classList.add('hidden');
         thinkingSummaryText.textContent = 'Vis tankeprosess';
         thinkingDetails.open = false;
