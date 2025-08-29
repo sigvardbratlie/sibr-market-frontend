@@ -34,6 +34,7 @@ input.addEventListener('keydown', (e) => {
     }
 });
 
+
 function activateChat() {
     if (isChatActive) return;
     initialView.classList.add('hidden');
@@ -89,6 +90,12 @@ function addMessageToUI(text, sender, options = {}) {
 }
 
 form.addEventListener('submit', async (event) => {
+    console.log('Form submit event triggered!');
+
+    submitButton.addEventListener('click', () => {
+    console.log('Send button clicked!');
+});
+
     event.preventDefault();
     const messageText = input.value.trim();
     if (messageText === '') return;

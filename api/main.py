@@ -42,7 +42,7 @@ api = FastAPI(
 # Definer hvilke opprinnelser (frontends) som får lov til å snakke med dette API-et.
 # '*' betyr "alle", som er greit for utvikling.
 origins = [
-    "http://localhost:5173", # Standard port for Vite dev server
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost",
     "https://ai-valuation.io/",
@@ -53,8 +53,8 @@ api.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Tillat alle metoder (GET, POST, etc.)
-    allow_headers=["*"], # Tillat alle headere
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 # ------------------------------------
 

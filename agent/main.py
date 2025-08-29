@@ -26,25 +26,29 @@ logger = Logger("HomesAgent-API")
 logger.set_level("INFO")
 
 # ===== SETUP ENV VARIABLES =======
-api_keys = ["OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "GROQ_API_KEY",
-        "GOOGLE_API_KEY",
-        "FIRECRAWL_API_KEY",
+api_keys = [
+        "OPENAI_API_KEY",
+        #"ANTHROPIC_API_KEY",
+        #"GROQ_API_KEY",
+        #"GOOGLE_API_KEY",
+        #"FIRECRAWL_API_KEY",
         "TAVILY_API_KEY",
-        "LANGSMITH_API_KEY"]
+        "LANGSMITH_API_KEY"
+        ]
 
 secret = SecretsManager(project_id = "sibr-market", logger = logger)
 for key in api_keys:
     try:
         key_val = secret.get_secret(key)
         os.environ[key] = key_val
-        logger.debug(f"Key {key} loaded as environment variable")
+        #logger.debug(f"Key {key} loaded as environment variable")
     except Exception as e:
         logger.error(f"Error loading key {key}: {e}")
 
 os.environ["LANGSMITH_TRACING"]="true"
 os.environ["LANGSMITH_PROJECT"]="sibr-market"
+
+logger.info(f'All keys loaded')
 
 
 # ===== SETUP FASTAPI & AGENT =======
@@ -52,9 +56,24 @@ from src.agent import HomeAgent,llm, tools
 app = FastAPI()
 agent = HomeAgent(llm = llm , tools = tools,logger = logger)
 
+origins = [
+    # Lokal utvikling
+    "http://localhost",
+    "http://localhost:5173",  # Standard for Vite
+    "http://localhost:63342",
+    "http://localhost:8080",
+    "http://127.0.0.1",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8080",
+
+    # Deployerte sider
+    "https://ai-valuation.io",
+    "https://sibr-market.web.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For utvikling, tillat alle. I produksjon bør du begrense dette.
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
