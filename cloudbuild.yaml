@@ -73,8 +73,8 @@ steps:
 
 
 - name: 'gcr.io/cloud-builders/gcloud'
-  id: 'deploy-gcloud-run-agent'
-  waitFor: ['push-agent']
+  id: 'deploy-gcloud-run-api'
+  waitFor: ['push-api']
   args:
     - run
     - deploy
