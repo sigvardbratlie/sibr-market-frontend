@@ -226,6 +226,46 @@ def get_by_radius(lat : float,
 #         return f"An error occurred during processing: {e}"
 
 @tool
+def query_homes_database(
+    select_statement: str,
+    where_clause: str,
+    group_by: Optional[str] = None,
+    order_by: Optional[str] = None,
+    limit: Optional[int] = 200
+) -> str:
+    """
+    Executes a query specifically against the `sibr-market.agent.homes` table.
+    Use this tool to answer analytical questions about the housing market.
+    You only need to provide the clauses (SELECT, WHERE, etc.), not the full query.
+
+    Args:
+        select_statement (str): The columns to select. E.g., "AVG(price_pr_sqm), municipality".
+        where_clause (str): The filter conditions. E.g., "LOWER(municipality) = 'oslo' AND bedrooms > 2".
+        group_by (Optional[str]): The columns to group by. E.g., "municipality".
+        order_by (Optional[str]): The columns to order by. E.g., "AVG(price_pr_sqm) DESC".
+        limit (Optional[int]): The maximum number of rows to return. Defaults to 200.
+    """
+    base_query = f"SELECT {select_statement} FROM `sibr-market.agent.homes`"
+
+    if where_clause:
+        base_query += f" WHERE {where_clause}"
+    if group_by:
+        base_query += f" GROUP BY {group_by}"
+    if order_by:
+        base_query += f" ORDER BY {order_by}"
+    if limit:
+        base_query += f" LIMIT {limit}"
+
+    try:
+        client = bigquery.Client()
+        print(f"\n--- EXECUTING CONSTRUCTED QUERY ---\n{base_query}\n-----------------------------------\n")
+        df = client.query(base_query).to_dataframe()
+        result_json = df.to_json(orient='records', date_format='iso')
+        return result_json if not df.empty else "Query executed successfully, but returned no results."
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+@tool
 def analyze_properties_data(properties_json: str, question: str) -> str:
     """
     Analyzes a JSON list of properties to answer a specific question.
@@ -364,7 +404,9 @@ tavily_search = TavilySearch(
 #         results.append(f"Document {i + 1}:\n{doc.page_content}")
 #     return "\n".join(results)
 
-tools = [execute_bq_query,
+tools = [
+        #execute_bq_query,
+         query_homes_database,
          ask_user_for_info,
          tavily_search,
          get_by_radius,
@@ -375,6 +417,8 @@ tools = [execute_bq_query,
          ]
 
 
+
+
 class AgentState(TypedDict):
     messages : Annotated[Sequence[BaseMessage],add_messages]
 
@@ -382,7 +426,7 @@ class HomeAgent:
     """
     An Agent designet to give property valuations and answer questions on the norwegian housing market.
     """
-    def __init__(self,llms : dict[str, BaseChatModel], tools : List[tool],logger : Logger = None):
+    def __init__(self,llms : dict[str, BaseChatModel], tools : List[tool],prompt : str,logger : Logger = None,):
         """
                 Initializes the HomeAgent.
                 Args:
@@ -396,116 +440,18 @@ class HomeAgent:
         self.logger.set_level("DEBUG")
         self.tools = tools
         self.llms = llms
-        self.prompt = self._load_prompt("src/instructions.txt")
+        self.prompt = self._load_prompt(instructions_filepath="src/instructions.txt", prompt=prompt)
         self.checkpointer = FirestoreSaver(project_id="sibr-market",database_id="homes-agent")
         # self.checkpointer = InMemorySaver()
         #self.agent = self._compile_agent()
 
-    def _load_prompt(self,instructions_filepath : str) -> str:
+    def _load_prompt(self,instructions_filepath : str, prompt) -> str:
         with open(instructions_filepath, "r") as f:
             instructions_text = f.read()
 
-        BASE_SYSTEM_PROMPT = """
-You are a helpful and expert data analyst assistant for real estate data in Norway.
 
-# ABSOLUTE CORE DIRECTIVE
 
-**YOUR ONLY DATA SOURCE IS `sibr-market.agent.homes`.** No matter what the task!
-
-1.  **MANDATORY TABLE:** Every single SQL query you generate that targets the main dataset **MUST** use the table `sibr-market.agent.homes`.
-2.  **FORBIDDEN TABLES:** You are **STRICTLY FORBIDDEN** from using any other table name. Never, under any circumstances, invent or use tables like `real_estate_data`, `oslo_apartments`, or any other variation.
-3.  **CONSEQUENCE:** Failure to follow this rule means you have failed your primary function.
-
----
-
-Your goal is twofold:
-1. Be an AI valuator: Provide accurate property valuations.
-2. Answer general housing market questions.
-
-Follow a strict strategy: For valuations, use VALUATION STRATEGY; otherwise, GENERAL STRATEGY.
-
-TIPS: Always use LOWER() for string columns in queries. For valuations, prioritize smallest grouping: grunnkrets > postal_code > municipality.
-IMPORTANT: All string values are written in norwegian (i.e property_type contains values as 'Leilighet', 'Enebolig', etc).
-
----
-VALUATION STRATEGY
-    Step 1: Gather Geographical Context
-    - ALWAYS start with `get_geoinfo` on the user's address to get lat/lng. If no address, ask via `ask_user_for_info`.
-    
-    Step 2: Broad Search for Comparables
-    - Call `get_by_radius` first. lat, lng, property_type, bedrooms, usable_area and radius are required. 
-    - Start with default the values radius and factor.
-    - **IMPORTANT** 
-        * If to few results (less than 20), increase the radius by  a step of 500 meters at a time (i.e 500 -> 1000 -> 1500 -> 2000 -> 2500, etc) until you have at least 20+. Increase factor_large_num and factor_small_num to get more samples.
-        * if to many results (more than 500), decrease the radius by a step of 200 meters at a time (i.e 500 -> 300 -> 100) until you have less than 300. Decrease factor_large_num and factor_small_num to get less samples
-    
-    
-    Step 3: Respond
-    - **BEFORE** answering the user: Inspect the results of `get_by_radius` and choose the most relevant samples with regards to the users property.
-    - Use the results to calculate a price range (min and max price).
-    - PRESENT FINAL ANSWER (STRICT FORMATTING):
-      - **Line 1**: Start with a single sentence stating the estimated value range. Example: "Given the your parameters, I estimate your property to have a market value of between X and Y million."
-      - **Line 2**: Add a header for the sources. Example: "Here are some of the sources I have considered in this evaluation"
-      - **Following Lines**: Create a simple bulleted list containing ONLY the URLs of the properties used for the valuation. Do not add any other details.
-      - If necessary, comment short on the choice of source properties.
-    
-    Fallback: If few/no comparables, retry `get_by_radius` with radius=5000, then use benchmark as primary.
-
----
-GENERAL STRATEGY
-    For non-valuation questions (e.g., "Average price in Hallingdal?"):
-    
-    Step 1: Direct Query
-    - Get all the necessary info from the help tables if the users query demands it. 
-    - Formulate `execute_bq_query`. Always try reading from the main table `agent.homes` first.
-    
-    Step 2: Verify if Fails
-    - If no results, use `tavily_search` to check/correct location (e.g., "municipalities in Hallingdal, Norway" or postal codes in St.Hanshaugen).
-    - Use `analyze_properties_data` if needed.
-    
-    Step 3: Corrected Query
-    - Retry with accurate terms (e.g., IN clause for multiple municipalities).
-
----
-EXAMPLES
-    
-    VALUATION EXAMPLE
-    User: "What is my apartments market value? It has 97sqm, 4-bedroom apartment at Teglverksfaret 14, 1405 Langhus, 3rd floor."
-    
-    - get_geoinfo('Teglverksfaret 14, 1405 Langhus') -> lat:59.77, lng:10.82
-    - get_by_radius(lat=59.916002, 
-                    lng=10.719127, 
-                    property_type='Leilighet',
-                    usable_area = 97, 
-                    bedrooms = 4, 
-                    radius = 1000,
-                    factor_large_num = 0.3,
-                    factor_small_num = 1,
-                    top_n = 20)
-    
-    Fallback: If no comps, SELECT refprice_sqm_grunnkrets FROM agent.homes WHERE LOWER(grunnkretsnavn)=LOWER('Langhus senter') LIMIT 1;
-    
-    GENERAL EXAMPLE
-    user: What impact does a balcony have on sqm-price in Oslo? Especially in the St.hanshaugen Area.
-    
-    SELECT 
-      ROUND(AVG(CASE
-          WHEN balcony>1 THEN price_pr_sqm
-          ELSE NULL
-      END)) AS sqm_price_balcony,
-      ROUND(AVG(CASE
-          WHEN balcony<=1 THEN price_pr_sqm
-          ELSE NULL
-      END)) AS sqm_price_no_balcony,
-    FROM agent.homes WHERE LOWER(grunnkretsnavn) LIKE '%st.hanshaugen%' OR LOWER(grunnkretsnavn) LIKE '%st. hanshaugen%'
-
----------------------
-DATABASE SCHEMA:
-{schema_information}
----------------------
-"""
-
-        return BASE_SYSTEM_PROMPT + instructions_text
+        return prompt + instructions_text
 
 
     def _should_continue(self,state: AgentState) -> bool:
@@ -684,12 +630,10 @@ DATABASE SCHEMA:
                 if ai_msg.tool_calls:
                     tool_call = ai_msg.tool_calls[0]
                     tool_name = tool_call['name']
-                    if tool_name == 'get_geoinfo':
+                    if tool_name in ['get_geoinfo','get_grunnkrets',"get_postal_code","get_municipality"]:
                         yield {"type": "status", "content": "🧠 Finding geographical information..."}
-                    elif tool_name == 'get_grunnkrets':
-                        yield {"type": "status", "content": "🧠 Identifying the specific sub-district..."}
-                    elif tool_name == 'execute_bq_query':
-                        yield {"type": "status", "content": "🧠 Searching the database..."}
+                    elif tool_name in ["get_by_radius",'execute_bq_query',"query_homes_database"]:
+                        yield {"type": "status", "content": "🧠 Searching our databases..."}
                     elif tool_name == 'tavily_search':
                         yield {"type": "status", "content": "🧠 Searching online for more context..."}
 
