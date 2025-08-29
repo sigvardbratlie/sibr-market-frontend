@@ -123,7 +123,7 @@ form.addEventListener('submit', async (event) => {
     agentController = new AbortController(); // Opprett en ny controller for dette kallet
 
     try {
-        const response = await fetch('https://agent-homes-86613370495.europe-west1.run.app/ask-agent', {
+        const response = await fetch('https://agent-86613370495.europe-west1.run.app', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ question: messageText, session_id: sessionId }),

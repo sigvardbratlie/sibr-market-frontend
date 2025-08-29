@@ -1,0 +1,118 @@
+:root {
+    --background-color: #f8f7f4;
+    --text-color: #2c2c2e;
+    --border-color: #d1d1d6;
+    --header-bg: #ffffff;
+    --primary-blue: #007bff;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 1rem 2rem;
+}
+
+header {
+    margin-bottom: 1.5rem;
+}
+
+h1 {
+    margin: 0;
+}
+
+.table-container {
+    max-height: 75vh;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--header-bg);
+}
+
+#homes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+#homes-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #f9fafb; /* Litt annen farge for å skille header */
+}
+
+#homes-table th, #homes-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    white-space: nowrap;
+}
+
+#homes-table th {
+    font-weight: 600;
+}
+
+.filter-input {
+    width: 90%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+#loading-spinner {
+    text-align: center;
+    padding: 2rem;
+    font-size: 1.1rem;
+}
+
+#loading-spinner.hidden {
+    display: none;
+}
+
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #ccc;
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+}
+
+@keyframes rotation {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1.5rem;
+    gap: 1rem;
+}
+
+#pagination-controls button {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#pagination-controls button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homes Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <header>
+        <h1>Homes Dashboard</h1>
+        <p>Utforsk og filtrer boligdata i sanntid.</p>
+    </header>
+
+    <main>
+        <div class="table-container">
+            <table id="homes-table">
+                <thead id="table-head">
+                    </thead>
+                <tbody id="table-body">
+                    </tbody>
+            </table>
+        </div>
+        <div id="loading-spinner" class="hidden">
+            <div class="spinner"></div> Laster data...
+        </div>
+        <div id="pagination-controls">
+            <button id="prev-page" disabled>Forrige</button>
+            <span id="page-info">Side 1</span>
+            <button id="next-page">Neste</button>
+        </div>
+    </main>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

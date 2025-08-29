@@ -17,73 +17,74 @@ steps:
     else
       echo "Keyword found. Proceeding with build."
     fi
+#
+### =========== AGENT =================
+## STEP 1: Build the Docker container
+#- name: 'gcr.io/cloud-builders/docker'
+#  id: 'build-agent'
+#  waitFor: ['Check-commit-message']
+#  args:
+#    - 'build'
+#    - '-t'
+#    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
+#    - './agent'
+#
+## STEP 2: Push the Docker container
+#- name: 'gcr.io/cloud-builders/docker'
+#  id: "push-agent"
+#  waitFor: ['build-agent']
+#  args:
+#    - 'push'
+#    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
+#
+## STEP 3: Deploy to Cloud Run
+#- name: 'gcr.io/cloud-builders/gcloud'
+#  id: 'deploy-gcloud-run-agent'
+#  waitFor: ['push-agent']
+#  args:
+#    - run
+#    - deploy
+#    - 'agent'
+#    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA
+#    - --region=europe-west1
+#    - --platform=managed
+#    - --allow-unauthenticated
+#    - --service-account=cloud-run-829@sibr-market.iam.gserviceaccount.com
+#    - --quiet
 
-## =========== AGENT =================
+# =========== API =================
 # STEP 1: Build the Docker container
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'build-agent'
+  id: 'build-api'
   waitFor: ['Check-commit-message']
   args:
     - 'build'
     - '-t'
-    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
-    - './agent'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
+    - './api'
 
 # STEP 2: Push the Docker container
 - name: 'gcr.io/cloud-builders/docker'
-  id: "push-agent"
-  waitFor: ['build-agent']
+  id: "push-api"
+  waitFor: ['build-api']
   args:
     - 'push'
-    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
 
-# STEP 3: Deploy to Cloud Run
+
 - name: 'gcr.io/cloud-builders/gcloud'
   id: 'deploy-gcloud-run-agent'
   waitFor: ['push-agent']
   args:
     - run
     - deploy
-    - 'agent'
-    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA
+    - 'api'
+    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA
     - --region=europe-west1
     - --platform=managed
     - --allow-unauthenticated
+    - --service-account=cloud-run-829@sibr-market.iam.gserviceaccount.com
     - --quiet
-
-## =========== API =================
-## STEP 1: Build the Docker container
-#- name: 'gcr.io/cloud-builders/docker'
-#  id: 'build-api'
-#  waitFor: ['Check-commit-message']
-#  args:
-#    - 'build'
-#    - '-t'
-#    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
-#    - './api'
-
-## STEP 2: Push the Docker container
-#- name: 'gcr.io/cloud-builders/docker'
-#  id: "push-api"
-#  waitFor: ['build-api']
-#  args:
-#    - 'push'
-#    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
-
-
-## STEP 3: Deploy to Cloud Run
-#- name: 'gcr.io/google.com/cloudsdktool/google-cloud-cli:latest'
-#  id: 'deploy-gcloud-run-api'
-#  waitFor: ['push-api']
-#  args:
-#    - gcloud
-#    - run
-#    - deploy
-#    - 'api'
-#    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA
-#    - --region=europe-west1
-#    - --platform=managed
-#    - --allow-unauthenticated
 
 images:
 - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'

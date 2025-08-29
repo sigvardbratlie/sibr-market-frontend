@@ -12,6 +12,8 @@ import os
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from fastapi import Request
+
 
 load_dotenv()
 cred_filename = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_FILENAME")
@@ -220,6 +222,59 @@ def get_homes(municipality: Optional[str] = None, county: Optional[str] = None, 
         return []
 
     df = df.replace({np.nan: None})
+
+    return df.to_dict('records')
+
+
+@api.get("/homes/search", response_model=List[Dict[str, Any]], tags=["Raw Homes Data"])
+def search_homes(request: Request, page: int = 1, limit: int = 50):
+    """
+    Searches for homes with dynamic filters, pagination, and returns specific columns.
+    Filters are provided as query parameters.
+    """
+    # Kolonnene du spesifiserte
+    columns = [
+        "dealer", "address", "price", "total_price", "fees", "joint_debt",
+        "monthly_common_cost", "collective_assets", "tax_value", "property_type",
+        "ownership_type", "bedrooms", "internal_area", "usable_area", "external_area",
+        "floor", "balcony", "build_year", "energy_rating", "rooms", "plot_size",
+        "last_updated", "item_id", "url", "country", "price_pr_sqm", "postal_code",
+        "municipality", "county", "region"
+    ]
+
+    # Valider at vi ikke prøver å hente kolonner som ikke er i listen
+    valid_columns_str = ", ".join([f"`{col}`" for col in columns])
+
+    base_query = f'''SELECT {valid_columns_str} FROM `sibr-market.agent.homes`'''
+    conditions = []
+    query_params = []
+
+    # Hent alle query parametre fra requesten
+    filters = request.query_params
+
+    for key, value in filters.items():
+        if key in columns and value:
+            # Bruker LIKE for delvis match, og LOWER for case-insensitivitet
+            conditions.append(f"LOWER(CAST(`{key}` AS STRING)) LIKE @{key}")
+            query_params.append(ScalarQueryParameter(key, "STRING", f"%{value.lower()}%"))
+
+    if conditions:
+        base_query += " WHERE " + " AND ".join(conditions)
+
+    # Legg til paginering
+    offset = (page - 1) * limit
+    base_query += f" ORDER BY last_updated DESC LIMIT @limit OFFSET @offset"
+    query_params.extend([
+        ScalarQueryParameter("limit", "INT64", limit),
+        ScalarQueryParameter("offset", "INT64", offset)
+    ])
+
+    df = run_query(base_query, params=query_params)
+    if df.empty:
+        return []
+
+    # Erstatt NaN/NaT med None for JSON-kompatibilitet
+    df = df.replace({np.nan: None, pd.NaT: None})
 
     return df.to_dict('records')
 
