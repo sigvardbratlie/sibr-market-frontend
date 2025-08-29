@@ -1,12 +1,3 @@
-#from langchain_google_firestore import FirestoreSaver
-#from langgraph_checkpoint_firestore import FirestoreSaver
-# from langgraph.checkpoint.memory import InMemorySaver, logger
-# from langchain_chroma import Chroma
-# from langchain_community.document_loaders import FireCrawlLoader,PyPDFLoader
-#from langchain.text_splitter import RecursiveCharacterTextSplitter
-# from google.cloud import firestore
-# import langgraph
-#from pathlib import Path
 import json
 import pandas as pd
 from langgraph.graph import StateGraph,END
@@ -23,7 +14,7 @@ from google.cloud import bigquery
 import os
 from geopy.geocoders import Nominatim
 from src.langchain_firestore_sb import FirestoreSaver
-load_dotenv()
+#load_dotenv()
 
 #logger = Logger(f'Sibr-Market-Agent')
 #logger.set_level("INFO")

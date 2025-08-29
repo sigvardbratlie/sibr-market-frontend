@@ -8,8 +8,21 @@ import pandas as pd
 from typing import Optional, List, Dict, Any, Literal
 import logging
 import numpy as np
+import os
+from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
+
 load_dotenv()
+cred_filename = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_FILENAME")
+
+if cred_filename:
+    print(f'RUNNING LOCAL. ADAPTING LOADING PROCESS')
+    project_root = Path(__file__).parent
+    os.chdir(project_root)
+    dotenv_path = project_root.parent / '.env'
+    load_dotenv(dotenv_path=dotenv_path)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(project_root.parent / cred_filename)
+
 
 # Konfigurerer logging for å se detaljerte feilmeldinger i terminalen
 logging.basicConfig(level=logging.INFO)
