@@ -50,7 +50,7 @@ window.addEventListener('click', () => {
     }
 });
 
-insightsButton.addEventListener('click', () => { window.location.href = 'src/dashboard.html'; });
+insightsButton.addEventListener('click', () => { window.location.href = 'dashboard.html'; });
 
 stopButton.addEventListener('click', () => {
     if (agentController) {
