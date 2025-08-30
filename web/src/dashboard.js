@@ -1,8 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     // API Configuration
-    const API_BASE_URL = 'https://api-86613370495.europe-west1.run.app';
+    //const API_BASE_URL = 'https://api-86613370495.europe-west1.run.app';
+    const API_BASE_URL ='http://0.0.0.0:8080'
 
-    // Columns to display, in order
+    // Columns to display
     const COLUMNS = [
         "item_id", "address", "municipality", "county", "price", "price_pr_sqm",
         "property_type", "usable_area", "bedrooms", "build_year",
@@ -16,58 +17,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
     const pageInfo = document.getElementById('page-info');
+    const monthBtn = document.getElementById('period-month');
+    const quarterBtn = document.getElementById('period-quarter');
 
     // State
     let currentPage = 1;
-    const limit = 50; // 50 rows per page
-    let currentFilters = {};
+    let currentPeriod = 'month'; // 'month' or 'quarter'
+    const limit = 50;
+    let currentFilters = { url: 'https' }; // DEFAULT FILTER
     let isFetching = false;
 
-    /**
-     * Creates a debounced function that delays invoking func until after wait milliseconds
-     * have elapsed since the last time the debounced function was invoked.
-     * @param {Function} func The function to debounce.
-     * @param {number} wait The number of milliseconds to delay.
-     * @returns {Function} Returns the new debounced function.
-     */
+    // Debounce function
     const debounce = (func, wait) => {
         let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
+        return (...args) => {
             clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
+            timeout = setTimeout(() => func.apply(this, args), wait);
         };
     };
 
     /**
-     * Fetches home data from the API based on current filters and page.
+     * Main function to fetch all dashboard data from the new endpoint.
      */
-    async function fetchHomes() {
+    async function fetchDashboardData() {
         if (isFetching) return;
         isFetching = true;
         loadingSpinner.classList.remove('hidden');
-        tableBody.innerHTML = ''; // Clear table while loading
+        tableBody.innerHTML = '';
 
         const params = new URLSearchParams({
             page: currentPage,
             limit: limit,
+            period: currentPeriod,
             ...currentFilters
         });
 
         try {
-            const response = await fetch(`${API_BASE_URL}/homes/search?${params.toString()}`);
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.statusText}`);
-            }
+            const response = await fetch(`${API_BASE_URL}/homes/dashboard-stats?${params.toString()}`);
+            console.log(`${API_BASE_URL}/homes/dashboard-stats?${params.toString()}`);
+            if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+
             const data = await response.json();
-            populateTable(data);
-            updatePagination(data.length);
+
+            updateKpis(data.kpis);
+            populateTable(data.homes);
+            updatePagination(data.homes.length);
+
         } catch (error) {
-            console.error("Failed to fetch homes:", error);
-            tableBody.innerHTML = `<tr><td colspan="${COLUMNS.length}">Kunne ikke laste data. Prøv igjen senere.</td></tr>`;
+            console.error("Failed to fetch dashboard data:", error);
+            tableBody.innerHTML = `<tr><td colspan="${COLUMNS.length}">Kunne ikke laste data.</td></tr>`;
         } finally {
             isFetching = false;
             loadingSpinner.classList.add('hidden');
@@ -75,50 +73,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Populates the table with data from the API.
-     * @param {Array<Object>} homes - An array of home objects.
+     * Updates the KPI cards with new data.
+     * @param {Object} kpis - The KPI object from the API.
      */
-    function populateTable(homes) {
-        if (homes.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="${COLUMNS.length}">Ingen resultater funnet for dine filter.</td></tr>`;
-            return;
-        }
+    function updateKpis(kpis = {}) {
+        const { current, previous } = kpis;
 
-        const rows = homes.map(home => {
-            const tr = document.createElement('tr');
-            COLUMNS.forEach(col => {
-                const td = document.createElement('td');
-                let value = home[col];
+        const calculateChange = (currentVal, previousVal) => {
+            if (previousVal === 0 || previousVal == null || currentVal == null) return null;
+            return ((currentVal - previousVal) / previousVal) * 100;
+        };
 
-                // Formatting
-                if (value === null || typeof value === 'undefined') {
-                    value = 'N/A';
-                } else if (col === 'price' || col === 'price_pr_sqm') {
-                    value = new Intl.NumberFormat('nb-NO', { style: 'currency', currency: 'NOK', minimumFractionDigits: 0 }).format(value);
-                } else if (col === 'url') {
-                    value = `<a href="${value}" target="_blank">Link</a>`;
-                    td.innerHTML = value;
-                }
+        const formatValue = (key, value) => {
+            if (value == null) return '-';
+            if (key === 'avg_price') {
+                return new Intl.NumberFormat('nb-NO', { style: 'currency', currency: 'NOK', maximumFractionDigits: 0 }).format(value);
+            }
+            return new Intl.NumberFormat('nb-NO').format(Math.round(value));
+        };
 
-                if (col !== 'url') {
-                   td.textContent = value;
-                }
-                tr.appendChild(td);
-            });
-            return tr;
-        });
+        const updateCard = (key) => {
+            const valueEl = document.getElementById(`kpi-${key}`);
+            const changeEl = document.getElementById(`kpi-${key}-change`);
 
-        tableBody.append(...rows);
+            const currentValue = current ? current[key] : null;
+            const previousValue = previous ? previous[key] : null;
+
+            valueEl.textContent = formatValue(key, currentValue);
+
+            const change = calculateChange(currentValue, previousValue);
+
+            if (change != null) {
+                const sign = change > 0 ? '▲' : '▼';
+                changeEl.textContent = `${sign} ${change.toFixed(1)}% vs forrige periode`;
+                changeEl.className = `kpi-change ${change > 0 ? 'positive' : 'negative'}`;
+            } else {
+                changeEl.textContent = '';
+            }
+        };
+
+        ['avg_price', "avg_sqm_price",'avg_sqm', 'avg_build_year', 'n_samples'].forEach(updateCard);
     }
 
     /**
-     * Updates the pagination buttons based on the current state.
-     * @param {number} fetchedCount - The number of items fetched in the current request.
+     * Populates the main data table.
+     * @param {Array<Object>} homes - Array of home objects.
      */
-    function updatePagination(fetchedCount) {
-        pageInfo.textContent = `Side ${currentPage}`;
-        prevPageBtn.disabled = currentPage === 1;
-        nextPageBtn.disabled = fetchedCount < limit; // Disable next if we got less than a full page
+    function populateTable(homes) {
+        if (homes.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="${COLUMNS.length}">Ingen resultater funnet.</td></tr>`;
+            return;
+        }
+        const rows = homes.map(home => {
+             const tr = document.createElement('tr');
+             COLUMNS.forEach(col => {
+                 const td = document.createElement('td');
+                 let value = home[col];
+                 if (value === null || typeof value === 'undefined') value = 'N/A';
+                 else if (col === 'price' || col === 'price_pr_sqm') value = Math.round(value).toLocaleString('nb-NO');
+                 else if (col === 'url') {
+                    td.innerHTML = `<a href="${value}" target="_blank">Link</a>`;
+                    return tr.appendChild(td);
+                 }
+                 td.textContent = value;
+                 tr.appendChild(td);
+             });
+             return tr;
+        });
+        tableBody.append(...rows);
     }
 
     /**
@@ -129,56 +151,76 @@ document.addEventListener('DOMContentLoaded', () => {
         const filterRow = document.createElement('tr');
 
         COLUMNS.forEach(col => {
-            // Title cell
             const thTitle = document.createElement('th');
             thTitle.textContent = col.replace(/_/g, ' ').toUpperCase();
             titleRow.appendChild(thTitle);
 
-            // Filter cell
             const thFilter = document.createElement('th');
             const input = document.createElement('input');
             input.type = 'text';
-            input.placeholder = `Filtrer ${col}...`;
+            input.placeholder = `Filtrer...`;
             input.className = 'filter-input';
             input.dataset.column = col;
+
+            // Set default filter value from state
+            if (currentFilters[col]) {
+                input.value = currentFilters[col];
+            }
+
             input.addEventListener('input', debouncedFilterChange);
             thFilter.appendChild(input);
             filterRow.appendChild(thFilter);
         });
 
-        tableHead.appendChild(titleRow);
-        tableHead.appendChild(filterRow);
+        tableHead.append(titleRow, filterRow);
     }
 
-    // Debounced version of the handler
     const debouncedFilterChange = debounce((event) => {
         const { column } = event.target.dataset;
         const { value } = event.target;
-
         if (value) {
             currentFilters[column] = value;
         } else {
             delete currentFilters[column];
         }
+        currentPage = 1;
+        fetchDashboardData();
+    }, 500);
 
-        currentPage = 1; // Reset to first page on new filter
-        fetchHomes();
-    }, 500); // 500ms delay
+    function updatePagination(fetchedCount) {
+        pageInfo.textContent = `Side ${currentPage}`;
+        prevPageBtn.disabled = currentPage === 1;
+        nextPageBtn.disabled = fetchedCount < limit;
+    }
 
-    // Event Listeners for pagination
+    // Event Listeners
     prevPageBtn.addEventListener('click', () => {
         if (currentPage > 1) {
             currentPage--;
-            fetchHomes();
+            fetchDashboardData();
         }
     });
 
     nextPageBtn.addEventListener('click', () => {
         currentPage++;
-        fetchHomes();
+        fetchDashboardData();
     });
 
-    // Initial load
+    monthBtn.addEventListener('click', () => {
+        currentPeriod = 'month';
+        monthBtn.classList.add('active');
+        quarterBtn.classList.remove('active');
+        fetchDashboardData();
+    });
+
+    quarterBtn.addEventListener('click', () => {
+        currentPeriod = 'quarter';
+        quarterBtn.classList.add('active');
+        monthBtn.classList.remove('active');
+        fetchDashboardData();
+    });
+
+    // Initial Load
     initializeHeader();
-    fetchHomes();
+    fetchDashboardData();
 });

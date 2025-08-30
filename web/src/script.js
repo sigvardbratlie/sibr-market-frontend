@@ -4,7 +4,8 @@ const form = document.getElementById('input-form');
 const input = document.getElementById('message-input');
 const messagesContainer = document.getElementById('chat-messages');
 const initialView = document.getElementById('initial-view');
-const insightsButton = document.querySelector('.top-buttons').children[1];
+//const insightsButton = document.querySelector('.top-buttons').children[1];
+const insightsButton = document.getElementById('insights-button');
 const submitButton = document.getElementById('send-button');
 const stopButton = document.getElementById('stop-button');
 const agentTypeSelect = document.getElementById('agent-type-select'); // NY linje
@@ -16,7 +17,40 @@ let isChatActive = false;
 // const endpointUrl = 'https://agent-86613370495.europe-west1.run.app/ask-agent'
 const endpointUrl = "http://0.0.0.0:8080/ask-agent"
 
-insightsButton.addEventListener('click', () => { window.location.href = 'src/insights.html'; });
+// --- Dropdown Logic ---
+const dropdownContainer = document.querySelector('.dropdown-container');
+const dropdownBtn = document.getElementById('agent-dropdown-btn');
+const dropdownMenu = document.getElementById('agent-dropdown-menu');
+const dropdownBtnText = dropdownBtn.querySelector('span');
+
+// Toggle dropdown
+dropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // Forhindrer at 'window' eventet lukker den med en gang
+    dropdownMenu.classList.toggle('hidden');
+    dropdownContainer.classList.toggle('open');
+});
+
+// Handle selection
+dropdownMenu.addEventListener('click', (e) => {
+    if (e.target.tagName === 'A') {
+        e.preventDefault();
+        const selectedText = e.target.textContent;
+        //const selectedValue = e.target.dataset.value; // Kan brukes senere
+        dropdownBtnText.textContent = selectedText;
+        dropdownMenu.classList.add('hidden');
+        dropdownContainer.classList.remove('open');
+    }
+});
+
+// Close dropdown when clicking outside
+window.addEventListener('click', () => {
+    if (!dropdownMenu.classList.contains('hidden')) {
+        dropdownMenu.classList.add('hidden');
+        dropdownContainer.classList.remove('open');
+    }
+});
+
+insightsButton.addEventListener('click', () => { window.location.href = 'src/dashboard.html'; });
 
 stopButton.addEventListener('click', () => {
     if (agentController) {

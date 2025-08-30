@@ -10,8 +10,19 @@
 
     <main class="chat-container">
         <div class="top-buttons">
-            <button>AI-valuation</button>
-            <button>Insights</button>
+            <div class="dropdown-container">
+                <button id="agent-dropdown-btn" class="dropdown-toggle">
+                    <span>Fast Agent</span>
+                    <svg class="arrow-down" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div id="agent-dropdown-menu" class="dropdown-menu hidden">
+                    <a href="#" data-value="fast">Fast Agent</a>
+                    <a href="#" data-value="expert">Expert Agent</a>
+                </div>
+            </div>
+            <button id="insights-button">
+                Insights
+            </button>
         </div>
 
         <div class="initial-view" id="initial-view">
@@ -28,13 +39,6 @@
             <button class="prompt-btn">Sammenlign prisene i Trondheim og Stavanger.</button>
         </div>
 
-        <div class="agent-options">
-            <select id="agent-type-select">
-                <option value="expert">Expert Agent</option>
-                <option value="fast">Fast Agent</option>
-            </select>
-        </div>
-
         <footer class="chat-input-form">
             <form id="input-form">
                 <textarea
@@ -45,7 +49,7 @@
 
                 <div class="button-container">
                     <button id="send-button" type="submit">
-                      <!-- Icon or text here, e.g., <img class="send-icon" src="..." alt="Send"> -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="send-icon"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                     </button>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="send-icon"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                     </button>

@@ -44,6 +44,7 @@ api = FastAPI(
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:63342",
     "http://localhost",
     "https://ai-valuation.io/",
     "https://ai-valuation.io/homes/",
@@ -277,6 +278,97 @@ def search_homes(request: Request, page: int = 1, limit: int = 50):
     df = df.replace({np.nan: None, pd.NaT: None})
 
     return df.to_dict('records')
+
+
+@api.get("/homes/dashboard-stats", response_model=Dict[str, Any], tags=["Dashboard Data"])
+def get_dashboard_stats(
+        request: Request,
+        period: Literal["month", "quarter"] = "month",
+        page: int = 1,
+        limit: int = 50
+):
+    """
+    Fetches aggregated KPIs and a paginated list of homes based on dynamic filters.
+    Calculates change from the previous period (month or quarter).
+    """
+    filters = request.query_params
+
+    # Bygg den dynamiske WHERE-betingelsen og parametere
+    conditions = []
+    query_params = []
+    for key, value in filters.items():
+        # Ignorerer parametere som ikke er ment for filtrering
+        if key not in ["period", "page", "limit"] and value:
+            conditions.append(f"LOWER(CAST(`{key}` AS STRING)) LIKE @{key}")
+            query_params.append(ScalarQueryParameter(key, "STRING", f"%{value.lower()}%"))
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    # Definer tidsenheten for BigQuery
+    bq_period = "MONTH" if period == "month" else "QUARTER"
+
+    # SQL for å hente KPI-er for nåværende og forrige periode i ett kall
+    kpi_query = f"""
+    WITH FilteredData AS (
+        SELECT 
+            price, usable_area, build_year, last_updated,
+            -- Definerer perioden for hver rad
+            DATE_TRUNC(DATE(last_updated), {bq_period}) as period_start
+        FROM `sibr-market.agent.homes`
+        {where_clause}
+    ),
+    LatestPeriod AS (
+        SELECT MAX(period_start) as current_period_start FROM FilteredData
+    )
+    SELECT
+        period_type,
+        ROUND(AVG(price)) as avg_price,
+        ROUND(AVG(usable_area)) as avg_sqm,
+        ROUND(AVG(build_year)) as avg_build_year,
+        COUNT(*) as n_samples
+    FROM (
+        SELECT
+            'current' as period_type, F.*
+        FROM FilteredData F, LatestPeriod L
+        WHERE F.period_start = L.current_period_start
+        UNION ALL
+        SELECT
+            'previous' as period_type, F.*
+        FROM FilteredData F, LatestPeriod L
+        WHERE F.period_start = DATE_SUB(L.current_period_start, INTERVAL 1 {bq_period})
+    )
+    GROUP BY period_type
+    """
+
+    kpi_df = run_query(kpi_query, params=query_params)
+    kpis = {row['period_type']: row for row in kpi_df.to_dict('records')}
+
+    # SQL for å hente tabelldata med paginering
+    columns = [
+        "item_id", "address", "municipality", "county", "price", "price_pr_sqm",
+        "property_type", "usable_area", "bedrooms", "build_year",
+        "last_updated", "dealer", "url"
+    ]
+    valid_columns_str = ", ".join([f"`{col}`" for col in columns])
+    offset = (page - 1) * limit
+
+    homes_query = f"""
+    SELECT {valid_columns_str} FROM `sibr-market.agent.homes`
+    {where_clause}
+    ORDER BY last_updated DESC
+    LIMIT @limit OFFSET @offset
+    """
+
+    # Legg til pagineringsparametere (de må være bakerst)
+    pagination_params = [
+        ScalarQueryParameter("limit", "INT64", limit),
+        ScalarQueryParameter("offset", "INT64", offset)
+    ]
+
+    homes_df = run_query(homes_query, params=query_params + pagination_params)
+    homes = homes_df.replace({np.nan: None, pd.NaT: None}).to_dict('records')
+
+    return {"kpis": kpis, "homes": homes}
 
 @api.get("/", include_in_schema=False)
 def root():

@@ -13,12 +13,45 @@
     </header>
 
     <main>
+        <div class="controls-container">
+            <div class="period-selector">
+                <button id="period-month" class="active">Måned</button>
+                <button id="period-quarter">Kvartal</button>
+            </div>
+        </div>
+
+        <div id="kpi-container" class="kpi-container">
+            <div class="kpi-card">
+                <h3>Gj.snittspris</h3>
+                <p id="kpi-avg_price" class="kpi-value">-</p>
+                <p id="kpi-avg_price-change" class="kpi-change"></p>
+            </div>
+            <div class="kpi-card">
+                <h3>Gj.snittlig kvadratmeterpris</h3>
+                <p id="kpi-avg_sqm_price" class="kpi-value">-</p>
+                <p id="kpi-avg_sqm_price-change" class="kpi-change"></p>
+            </div>
+            <div class="kpi-card">
+                <h3>Gj.snittsareal (kvm)</h3>
+                <p id="kpi-avg_sqm" class="kpi-value">-</p>
+                <p id="kpi-avg_sqm-change" class="kpi-change"></p>
+            </div>
+            <div class="kpi-card">
+                <h3>Gj.snitts byggeår</h3>
+                <p id="kpi-avg_build_year" class="kpi-value">-</p>
+                <p id="kpi-avg_build_year-change" class="kpi-change"></p>
+            </div>
+            <div class="kpi-card">
+                <h3>Antall boliger</h3>
+                <p id="kpi-n_samples" class="kpi-value">-</p>
+                <p id="kpi-n_samples-change" class="kpi-change"></p>
+            </div>
+        </div>
+
         <div class="table-container">
             <table id="homes-table">
-                <thead id="table-head">
-                    </thead>
-                <tbody id="table-body">
-                    </tbody>
+                <thead id="table-head"></thead>
+                <tbody id="table-body"></tbody>
             </table>
         </div>
         <div id="loading-spinner" class="hidden">
