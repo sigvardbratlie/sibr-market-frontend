@@ -41,117 +41,106 @@ def execute_bq_query(query: str) -> str:
     except Exception as e:
         return f"An error occurred: {e}"
 
+
 @tool
-def get_by_radius(lat : float,
-                  lng : float,
-                  property_type : str,
-                  usable_area : int|float,
-                  bedrooms : int,
-                  radius : int = 1000,
-                  factor_large_num : float = 0.3,
-                  factor_small_num : int = 1,
-                  top_n : int = 20):
+def get_by_radius(params: dict) -> str:
     """
-    Finds comparable properties within a radius, using a set of specific filters to narrow down the search.
-    It is crucial to use all available information from the user's query as filters.
+    Finds comparable properties using a set of filters. All parameters, including
+    coordinates, radius, and filters, are passed in a single dictionary.
 
     Args:
-            lat (float): The latitude of the property
-            lng (float): The longitude of the property
-            property_type (str): The type of property, for example 'Leilighet' or 'Enebolig'
-            usable_area (int): The usable area of the property
-            bedrooms (int): The number of bedrooms in the property
-            radius (int): The search radius in meters
-            factor_large_num (float): A factor to control the search span of the different attributes with numbers larger than 10
-            factor_small_num (int): A factor to control the search span of the different attributes with numbers smaller than 10
-            top_n (int): The top number of samples to consider
-    """
-    usable_area_min = usable_area * (1-factor_large_num)
-    usable_area_max = usable_area * (1 + factor_large_num)
-    bedrooms_min  = max(0,bedrooms - factor_small_num)
-    bedrooms_max = bedrooms + factor_small_num
+        params (dict): A dictionary containing all search parameters.
+                       - Required keys: 'lat' (float), 'lng' (float).
+                       - Optional keys: 'radius' (int, default 1000), 'top_n' (int, default 20).
+                       - Filter keys: Any other key-value pair is a filter.
+                         - For ranges: {'usable_area_min': 80, 'usable_area_max': 100}
+                         - For exact matches: {'property_type': 'Leilighet', 'floor': 3}
 
+    Example:
+        params = {
+            'lat': 59.9139,
+            'lng': 10.7522,
+            'radius': 1500,
+            'property_type': 'Leilighet',
+            'usable_area_min': 70,
+            'bedrooms_min': 2
+        }
+        get_by_radius(params)
+    """
+    # --- Step 1: Extract core parameters from the input dictionary ---
+
+    # Latitude and Longitude are required for the geographical search
+    if 'lat' not in params or 'lng' not in params:
+        return "Error: The 'params' dictionary must contain 'lat' and 'lng' keys."
+    lat = params['lat']
+    lng = params['lng']
+
+    # Radius and top_n are optional, with default values
+    radius = params.get('radius', 1000)
+    top_n = params.get('top_n', 20)
+
+    # --- Step 2: Isolate the filter parameters ---
+
+    # Define keys that are part of the function's logic, not database filters
+    non_filter_keys = {'lat', 'lng', 'radius', 'top_n'}
+    # Create a new dictionary containing only the keys intended as filters
+    filters = {key: value for key, value in params.items() if key not in non_filter_keys}
+
+
+    # Base query is constant (Corrected missing comma after h.price)
     query = f"""
         SELECT
-          (h.price_pr_sqm),
-          h.price_pr_i_sqm,
-          (h.url),
-          h.bedrooms,
-          h.floor,
-          h.usable_area,
-          h.internal_area,
-          h.build_year,
-          h.balcony,
-          h.renovated,
-          h.monthly_common_cost,
-          h.eq_parking,
-          h.eq_rental_unit,
-          ST_DISTANCE(ST_GEOGPOINT(h.lng, h.lat), ST_GEOGPOINT({lng}, {lat})) AS distance_in_meters,
+          h.price_pr_sqm,
+          h.price,
+          h.url,
+          ST_DISTANCE(ST_GEOGPOINT(h.lng, h.lat), ST_GEOGPOINT({lng}, {lat})) AS distance_in_meters
         FROM
           `sibr-market.agent.homes` h
-          WHERE ST_DWITHIN(ST_GEOGPOINT(h.lng, h.lat), ST_GEOGPOINT({lng}, {lat}), {radius})
-          AND LOWER(property_type) = LOWER('{property_type}')
-          AND h.usable_area BETWEEN {usable_area_min} AND {usable_area_max}
-          AND h.bedrooms BETWEEN {bedrooms_min} AND {bedrooms_max}
-        ORDER BY distance_in_meters ASC
-        LIMIT 200
+        WHERE ST_DWITHIN(ST_GEOGPOINT(h.lng, h.lat), ST_GEOGPOINT({lng}, {lat}), {radius})
     """
+
+    conditions = []
+    # Loop through the isolated filters to build the WHERE clause
+    for key, value in filters.items():
+        if value is None:
+            continue
+
+        if key.endswith('_min'):
+            column_name = key[:-4]
+            conditions.append(f"h.{column_name} >= {value}")
+        elif key.endswith('_max'):
+            column_name = key[:-4]
+            conditions.append(f"h.{column_name} <= {value}")
+        else:
+            if isinstance(value, str):
+                conditions.append(f"LOWER(h.{key}) = LOWER('{value}')")
+            elif isinstance(value, bool):
+                conditions.append(f"h.{key} = {str(value).upper()}")
+            else:
+                conditions.append(f"h.{key} = {value}")
+
+    if conditions:
+        query += "\nAND " + " AND ".join(conditions)
+
+    query += "\nORDER BY distance_in_meters"
+    if top_n:
+        query += f" LIMIT {top_n}"
+
+    # --- Step 4: Execute the query ---
 
     try:
         client = bigquery.Client()
-        #print(f"\n--- EXECUTING QUERY --- \n{query}\n-----------------------------------\n")
+        print(f"\n--- EXECUTING SIMPLIFIED QUERY --- \n{query}\n-----------------------------------\n")
         df = client.query(query).to_dataframe()
-        print(f'got {len(df)} rows')
+        print(f'Got {len(df)} rows from query')
+
+        if df.empty:
+            return "Query executed successfully, but returned no results with the given filters."
+
+        return df.to_json(orient='records', date_format='iso')
+
     except Exception as e:
         return f"An error occurred: {e}"
-
-    # df_filtered = df.copy()
-    # if len(df)>20:
-    #     for key, value in users_property.items():
-    #         if key != "property_type" and key not in df_filtered.columns:
-    #             print(f"Extra filter '{key}' not found in the dataframe.")
-    #             continue
-    #
-    #
-    #         if isinstance(value, float) or isinstance(value, int):
-    #             if key == "build_year" or  key == "balcony":
-    #                 min_val = max(0,value-factor_small_num*3)
-    #                 max_val = value+factor_small_num*3
-    #                 df_filtered = df_filtered[(df_filtered[key]>min_val) & (df_filtered[key]<max_val)]
-    #                 print(f'Minimum value {min_val} and maximum value {max_val} for property {key}\nLen after filter {len(df_filtered)}')
-    #
-    #             elif value<=10:
-    #                 min_val = int(max(0,value-factor_small_num))
-    #                 max_val = int(value+factor_small_num)
-    #                 print(f'Minimum value {min_val} and maximum value {max_val} for property {key}\nLen after filter {len(df_filtered)}')
-    #
-    #             elif value>10:
-    #                 min_val = int(max(0,value * (1-factor_large_num)))
-    #                 max_val = int(value * (1+factor_large_num))
-    #                 df_filtered = df_filtered[(df_filtered[key] >= min_val) & (df_filtered[key] <= max_val)]
-    #                 print(f'Minimum value {min_val} and maximum value {max_val} for property {key}\nLen after filter {len(df_filtered)}')
-    #         elif isinstance(value, str):
-    #             df_filtered = df_filtered[df_filtered[key].str.lower() == value.lower()]
-    #             print(f'Value {value} for property {key}\nLen after filter {len(df_filtered)}')
-    #         else:
-    #             df_filtered = df_filtered[df_filtered[key] == value]
-    #             print(f'Value {value} for property {key}\nLen after filter {len(df_filtered)}')
-
-    df_sorted = df.sort_values(by='distance_in_meters').head(top_n)
-    if df_sorted.empty:
-        return f"No properties remained after applying extra filters. Found {len(df)} initially."
-
-    # avg_sqm_price = df_sorted['price_pr_sqm'].mean()
-    # num_properties_used = len(df_sorted)
-    # urls = df_sorted['url'].tolist()
-    #
-    # result = {
-    #     "average_sqm_price": round(avg_sqm_price),
-    #     "number_of_comparables_used": num_properties_used,
-    #     "urls": urls
-    # }
-
-    return json.dumps(df_sorted.to_json(orient='records', date_format='iso'))
 
 #
 # @tool
@@ -484,7 +473,7 @@ class HomeAgent:
                 else:
                     input_to_tool = args
                 try:
-                    result = tool_to_call.invoke(input_to_tool)
+                    result = tool_to_call.func(**input_to_tool)
                 except Exception as e:
                     result = f'Something went wrong when calling tool {name} with {input_to_tool}: {e}.'
                     self.logger.info(result)
