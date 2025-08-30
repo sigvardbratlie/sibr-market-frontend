@@ -184,3 +184,26 @@ h1 {
 .kpi-change.negative {
     color: #dc3545;
 }
+.top-buttons {
+    position: absolute;
+    top: 3rem; /* Flyttet litt ned fra toppen */
+    left: 50%; /* Sentrert horisontalt */
+    transform: translateX(-50%); /* Korrigerer sentrering */
+    display: flex;
+    gap: 0.75rem;
+}
+.top-buttons button { background-color: #fff; border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.9rem; cursor: pointer; }
+
+
+#valuation-assistant {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    min-width: 150px;
+    z-index: 10;
+    overflow: hidden;
+}

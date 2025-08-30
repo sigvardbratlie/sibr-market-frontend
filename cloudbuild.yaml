@@ -52,40 +52,40 @@ steps:
     - --service-account=cloud-run-829@sibr-market.iam.gserviceaccount.com
     - --quiet
 
-## =========== API =================
-## STEP 1: Build the Docker container
-#- name: 'gcr.io/cloud-builders/docker'
-#  id: 'build-api'
-#  waitFor: ['Check-commit-message']
-#  args:
-#    - 'build'
-#    - '-t'
-#    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
-#    - './api'
-#
-## STEP 2: Push the Docker container
-#- name: 'gcr.io/cloud-builders/docker'
-#  id: "push-api"
-#  waitFor: ['build-api']
-#  args:
-#    - 'push'
-#    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
-#
-#
-#- name: 'gcr.io/cloud-builders/gcloud'
-#  id: 'deploy-gcloud-run-api'
-#  waitFor: ['push-api']
-#  args:
-#    - run
-#    - deploy
-#    - 'api'
-#    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA
-#    - --region=europe-west1
-#    - --platform=managed
-#    - --allow-unauthenticated
-#    - --service-account=cloud-run-829@sibr-market.iam.gserviceaccount.com
-#    - --quiet
-#
-#images:
-#- 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
-#- 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
+# =========== API =================
+# STEP 1: Build the Docker container
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-api'
+  waitFor: ['Check-commit-message']
+  args:
+    - 'build'
+    - '-t'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
+    - './api'
+
+# STEP 2: Push the Docker container
+- name: 'gcr.io/cloud-builders/docker'
+  id: "push-api"
+  waitFor: ['build-api']
+  args:
+    - 'push'
+    - 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'
+
+
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: 'deploy-gcloud-run-api'
+  waitFor: ['push-api']
+  args:
+    - run
+    - deploy
+    - 'api'
+    - --image=europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA
+    - --region=europe-west1
+    - --platform=managed
+    - --allow-unauthenticated
+    - --service-account=cloud-run-829@sibr-market.iam.gserviceaccount.com
+    - --quiet
+
+images:
+- 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/agent:$COMMIT_SHA'
+- 'europe-west1-docker.pkg.dev/sibr-market/sibr-market-repo/api:$COMMIT_SHA'

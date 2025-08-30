@@ -348,7 +348,7 @@ body {
 .dropdown-menu {
     position: absolute;
     top: calc(100% + 5px);
-    left: -100;
+    left: 0;
     background-color: white;
     border: 1px solid var(--border-color);
     border-radius: 8px;

@@ -1,3 +1,6 @@
+const valuationButton = document.getElementById("valuation-assistant")
+valuationButton.addEventListener('click', () => { window.location.href = 'index.html'; });
+
 document.addEventListener('DOMContentLoaded', () => {
     // API Configuration
     //const API_BASE_URL = 'https://api-86613370495.europe-west1.run.app';
@@ -22,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State
     let currentPage = 1;
-    let currentPeriod = 'month'; // 'month' or 'quarter'
+    let currentPeriod = 'quarter'; // 'month' or 'quarter'
     const limit = 50;
     let currentFilters = { url: 'https' }; // DEFAULT FILTER
     let isFetching = false;

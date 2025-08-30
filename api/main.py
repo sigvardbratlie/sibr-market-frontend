@@ -311,7 +311,7 @@ def get_dashboard_stats(
     kpi_query = f"""
     WITH FilteredData AS (
         SELECT 
-            price, usable_area, build_year, last_updated,
+            price, price_pr_sqm,usable_area, build_year, last_updated,
             -- Definerer perioden for hver rad
             DATE_TRUNC(DATE(last_updated), {bq_period}) as period_start
         FROM `sibr-market.agent.homes`
@@ -323,6 +323,7 @@ def get_dashboard_stats(
     SELECT
         period_type,
         ROUND(AVG(price)) as avg_price,
+        ROUND(AVG(price_pr_sqm)) as avg_sqm_price,
         ROUND(AVG(usable_area)) as avg_sqm,
         ROUND(AVG(build_year)) as avg_build_year,
         COUNT(*) as n_samples
@@ -368,6 +369,7 @@ def get_dashboard_stats(
     homes_df = run_query(homes_query, params=query_params + pagination_params)
     homes = homes_df.replace({np.nan: None, pd.NaT: None}).to_dict('records')
 
+    print(f'KPI: {kpis}')
     return {"kpis": kpis, "homes": homes}
 
 @api.get("/", include_in_schema=False)
