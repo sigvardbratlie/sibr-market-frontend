@@ -1,10 +1,10 @@
 const valuationButton = document.getElementById("valuation-assistant")
-valuationButton.addEventListener('click', () => { window.location.href = 'index.html'; });
+valuationButton.addEventListener('click', () => { window.location.href = '../index.html'; });
 
 document.addEventListener('DOMContentLoaded', () => {
     // API Configuration
-    //const API_BASE_URL = 'https://api-86613370495.europe-west1.run.app';
-    const API_BASE_URL ='http://0.0.0.0:8080'
+    const API_BASE_URL = 'https://api-86613370495.europe-west1.run.app';
+    //const API_BASE_URL ='http://0.0.0.0:8080'
 
     // Columns to display
     const COLUMNS = [

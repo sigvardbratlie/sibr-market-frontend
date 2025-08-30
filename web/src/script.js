@@ -14,8 +14,8 @@ let agentController;
 let currentAgentType = "expert"; // Standardvalg
 let isChatActive = false;
 
-// const endpointUrl = 'https://agent-86613370495.europe-west1.run.app/ask-agent'
-const endpointUrl = "http://0.0.0.0:8080/ask-agent"
+const endpointUrl = 'https://agent-86613370495.europe-west1.run.app/ask-agent'
+//const endpointUrl = "http://0.0.0.0:8080/ask-agent"
 
 // --- Dropdown Logic ---
 const dropdownContainer = document.querySelector('.dropdown-container');
